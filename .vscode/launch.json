@@ -1,0 +1,45 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "gdb",
+            "request": "attach",
+            "name": "Native debug",
+            "executable": "${workspaceRoot}/empty.elf",
+            "target": "192.168.3.4:8864",
+            "remote": true,
+            "cwd": "${workspaceRoot}",
+            "valuesFormatting": "parseText",
+            "autorun": [
+                "set disassemble-next-line on",
+                "set output-radix 16",
+                "add-symbol-file ${workspaceRoot}/kernel.elf -o 0x1000000"
+            ]
+        },
+        {
+            "name": "官方debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/empty.elf",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceRoot}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerServerAddress": "192.168.3.4:8864",
+            "setupCommands": [
+                {
+                    "text": "set disassemble-next-line on"
+                },
+                {
+                    "text": "set output-radix 16"
+                },
+                {
+                    "text": "add-symbol-file ${workspaceRoot}/kernel.elf -o 0x1000000"
+                }
+            ],
+            "targetArchitecture": "x86_64"
+        }
+    ]
+}

@@ -1,0 +1,65 @@
+#include <threads.h>
+#include <stdbool.h>
+#include <stdatomic.h>
+
+static inline bool cli_tsl_lock(uint64_t *const spin_mutex)
+{
+    bool is_sti;
+    uint64_t rflags;
+    __asm__ volatile (
+            "pushfq\n\t"
+            "popq   %0"
+            :"=g"(rflags)
+            :
+            :"rsp");
+    is_sti = (rflags & 0x0200) != 0;
+    if (is_sti) {
+        __asm__ volatile (
+                "cli"
+                :
+                :
+                :"memory");
+    }
+    uint64_t unlocked = 0;
+    const uint64_t locked = 1;
+    while (!atomic_compare_exchange_weak_explicit((_Atomic uint64_t *)spin_mutex, &unlocked, locked, memory_order_acquire, memory_order_relaxed))
+        unlocked = 0;
+    return is_sti;
+}
+
+static inline void sti_tsl_unlock(uint64_t *const spin_mutex, const bool sti)
+{
+    atomic_store_explicit((_Atomic uint64_t *)spin_mutex, 0, memory_order_release);
+    if (sti) {
+        __asm__ volatile (
+                "sti"
+                :
+                :
+                :"memory");
+    }
+}
+
+int __attribute__((noinline)) mtx_trylock(mtx_t*const mtx)
+{
+    const thrd_t current_thrd = thrd_current();
+    int ret;
+    const bool sti = cli_tsl_lock(&mtx->blocked_threads_spin_mtx);
+    if (mtx->owner == NULL) {
+        mtx->owner = current_thrd;
+        ret = thrd_success;
+    }
+    else if (mtx->owner == current_thrd) {
+        if (mtx->count == 0)
+            ret = thrd_error;
+        else if (mtx->count == SIZE_MAX)
+            ret = thrd_error;
+        else {
+            ++mtx->count;
+            ret = thrd_success;
+        }
+    }
+    else
+        ret = thrd_busy;
+    sti_tsl_unlock(&mtx->blocked_threads_spin_mtx, sti);
+    return ret;
+}
