@@ -40,7 +40,7 @@ static int __attribute__((noinline)) alloc_page_lock_routine(void *addr, const s
             goto label_failed;
         }
         else if (ret == 0)
-            CDL_PREPEND(mapped_pages, (struct Mapped_Page *)addr);
+            DL_PREPEND(mapped_pages, (struct Mapped_Page *)addr);
     }
 
     atomic_store_explicit(&free_pages_num, _free_pages_num, memory_order_relaxed);

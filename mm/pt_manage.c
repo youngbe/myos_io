@@ -19,7 +19,7 @@ static void add_pt_page(const void *const free_ph_page, struct PT_Page *const ne
 {
     pt_map_always_success(free_ph_page, new_pt_page_v_addr);
     init_pt_page(new_pt_page_v_addr, (uintptr_t)free_ph_page);
-    CDL_APPEND(free_pt_pages, new_pt_page_v_addr);
+    DL_APPEND(free_pt_pages, new_pt_page_v_addr);
     free_pts_num += 510;
 }
 static void pt_dec_free_entrys_num(const uint64_t *const pt)
@@ -36,7 +36,7 @@ static bool pt_inc_free_entrys_num_and_free_pt(const uint64_t *const pt)
         // 这个pt空了，释放它
         pt_page->free_ids[pt_page->free_num++] = id;
         if (pt_page->free_num == 1)
-            CDL_PREPEND(free_pt_pages, pt_page);
+            DL_PREPEND(free_pt_pages, pt_page);
         ++free_pts_num;
         return true;
     }
@@ -67,7 +67,7 @@ static void pt_map_always_success(const void *const ph_addr, void *const v_addr)
         // 防止编译器将读写映射区域的语句移到映射之前
         atomic_signal_fence(memory_order_acq_rel);
         if (free_pt_pages->free_num == 0)
-            CDL_DELETE(free_pt_pages, free_pt_pages);
+            DL_DELETE(free_pt_pages, free_pt_pages);
         --free_pts_num;
     }
     pt3[i3] = (uintptr_t)ph_addr | ((1 << 0) | (1 << 1) | (1 << 7));
@@ -114,7 +114,7 @@ static int pt_try_map(const void *const ph_addr, void *const v_addr, const void*
         // 防止编译器将读写映射区域的语句移到映射之前
         atomic_signal_fence(memory_order_acq_rel);
         if (free_pt_pages->free_num == 0)
-            CDL_DELETE(free_pt_pages, free_pt_pages);
+            DL_DELETE(free_pt_pages, free_pt_pages);
         --free_pts_num;
     }
     pt3[i3] = (uintptr_t)ph_addr | ((1 << 0) | (1 << 1) | (1 << 7));

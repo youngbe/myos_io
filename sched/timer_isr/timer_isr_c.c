@@ -13,84 +13,106 @@
 
 
 extern struct Core_Data kernel_gs_base;
-noreturn void kkk()
+noreturn void kkk(void)
 {
-    struct Thread *current_thread;
-    __asm__ ("nop":"=c"(current_thread)::);
-    if (current_thread != kernel_gs_base.running_thread)
+    struct Thread *old_thread;
+    __asm__ ("nop":"=c"(old_thread)::);
+    if (old_thread != kernel_gs_base.running_thread)
         __builtin_unreachable();
     __asm__ (
-            "movq  %%rsp, %0"
-            //"leaq  .Lreturn(%%rip), %1\n\t"
-            :"=m"(current_thread->rsp)//, "=m"(current_thread->return_hook)
+            "movq  %%rsp, %0\n\t"
+            "leaq  .Lreturn(%%rip), %1"
+            :"=m"(old_thread->rsp), "=r"(old_thread->return_hook)
             :
             :);
-    current_thread->return_hook = &&label_return;
-    struct Spin_Mutex_Member spin_mutex_member;
-    spin_mutex_member_init(&spin_mutex_member);
-    spin_lock(&schedulable_threads_lock, &spin_mutex_member);
-    struct Thread *fake_schedulable_threads = schedulable_threads;
+    //current_thread->return_hook = &&label_return;
 
-    if (fake_schedulable_threads == NULL) {
-        spin_unlock(&schedulable_threads_lock, &spin_mutex_member);
-        // 没有可切换线程，fast_exit
-        __asm__ (
-                "popq   %%rsp\n\t"
-                "addq   $104, %%rsp\n\t"
-                "wrmsr\n\t"
-                "lock   incq    %0\n\t"
-                "jmp    .Lpop4_iretq"
-                :"+m"(old_schedulable_threads_num)
-                :"c"((uint32_t)0x80b), "a"((uint32_t)0), "d"((uint32_t)0)
-                :);
-        __builtin_unreachable();
-    }
-    struct Thread *const new_thread = fake_schedulable_threads;
-    CDL_REPLACE_ELEM(fake_schedulable_threads, new_thread, current_thread);
-    schedulable_threads = fake_schedulable_threads->next;
+    struct Proc *old_proc;
+    bool old_is_kernel;
     {
-        // 切换cr3
-        uint64_t *current_cr3;
-        __asm__ (
-                "movq   %%cr3, %0"
-                :"=r"(current_cr3)
-                :
-                :);
-        if (current_cr3 != new_thread->cr3) {
-            __asm__ (
-                    "movq   %0, %%cr3"
-                    :
-                    :"r"(new_thread->cr3)
-                    :);
+        const uintptr_t temp = (uintptr_t)old_thread->proc;
+        old_is_kernel = temp & 1;
+        old_proc = (struct Proc *)(uintptr_t)(temp & -2);
+    }
+    if (!old_is_kernel)
+        atomic_fetch_add_explicit(&old_proc->threads_num, 1, memory_order_relaxed);
+
+    struct Spin_Mutex_Member spin_mutex_member;
+    struct Thread *new_thread;
+    spin_mutex_member_init(&spin_mutex_member);
+
+    atomic_signal_fence(memory_order_acq_rel);
+    spin_lock(&schedulable_threads_lock, &spin_mutex_member);
+    {
+        new_thread = schedulable_threads;
+        if (new_thread != NULL) {
+            struct Thread *fake_schedulable_threads = new_thread;
+            DL_APPEND(fake_schedulable_threads, old_thread);
+            DL_DELETE(fake_schedulable_threads, new_thread);
+            schedulable_threads = fake_schedulable_threads;
         }
     }
-
     spin_unlock(&schedulable_threads_lock, &spin_mutex_member);
+    atomic_signal_fence(memory_order_acq_rel);
+
+    if (new_thread == NULL) {
+        // 没有可切换线程，fast_exit
+        if (!old_is_kernel)
+            atomic_fetch_sub_explicit(&old_proc->threads_num, 1, memory_order_acquire);
+        __asm__ volatile (
+                "popq   %%rsp\n\t"
+                "addq   $96, %%rsp\n\t"
+                "wrmsr"
+                :"+m"(__not_exist_global_sym_for_asm_seq)
+                :"c"((uint32_t)0x80b), "a"((uint32_t)0), "d"((uint32_t)0)
+                :"cc");
+        atomic_fetch_add_explicit(&old_schedulable_threads_num, 1, memory_order_release);
+        __asm__ volatile (
+                "jmp    .Lpop5_iretq"
+                :
+                :
+                :);
+        __builtin_unreachable();
+    }
+
+    const uint64_t *const new_cr3 = new_thread->cr3;
+    if (new_cr3 != NULL) {
+        // new thread is not kernel thread
+        const struct Proc *const new_proc = new_thread->proc;
+        if (new_proc != old_proc)
+            __asm__ volatile("movq  %1, %%cr3":"+m"(__not_exist_global_sym_for_asm_seq):"r"(new_cr3):);
+        if (atomic_fetch_sub_explicit(&old_proc->threads_num, 1, memory_order_release) == 1) {
+            __asm__ volatile ("jmp abort":::);
+            __asm__ volatile ("nop":::);
+            __asm__ volatile ("nop":::);
+            __asm__ volatile ("nop":::);
+            __asm__ volatile ("nop":::);
+        }
+        kernel_gs_base.tss.rsp0 = (uintptr_t)&new_thread->stack[sizeof(new_thread->stack) / sizeof(new_thread->stack[0])];
+    } else
+        new_thread->proc = (struct Proc *)(uintptr_t)((uintptr_t)old_proc | 1);
 
     kernel_gs_base.running_thread = new_thread;
-    kernel_gs_base.tss.rsp0 = (uintptr_t)&new_thread->stack[sizeof(new_thread->stack) / sizeof(new_thread->stack[0])];
-    __asm__ (
-            "movq  %1, %%rsp\n\t"
-            "wrmsr\n\t"
-            "lock incq   %0\n\t"
-            "jmpq  *%2"
-            :"+m"(old_schedulable_threads_num)
-            :"m"(new_thread->rsp), "m"(new_thread->return_hook),
-            // 让编译器使用%rdi寄存器，配合fast_exit （否则编译器会使用%rsi）
-            "D"(new_thread),
-            "c"((uint32_t)0x80b), "a"((uint32_t)0), "d"((uint32_t)0)
+    __asm__ volatile (
+            "movq   %1, %%rsp"
+            :"+m"(__not_exist_global_sym_for_asm_seq)
+            :"m"(new_thread->rsp)
             :);
-label_return:
-    // 恢复上下文
-    __asm__ volatile(
-            "nop"
-            :
-            :
+    __asm__ volatile (
+            "wrmsr"
+            :"+m"(__not_exist_global_sym_for_asm_seq)
+            :"c"((uint32_t)0x80b), "a"((uint32_t)0), "d"((uint32_t)0)
+            :);
+    atomic_fetch_add_explicit(&old_schedulable_threads_num, 1, memory_order_acq_rel);
+    __asm__ volatile (
+            "jmpq   *%1"
+            :"+m"(__not_exist_global_sym_for_asm_seq)
+            :"m"(new_thread->return_hook)
             :);
     __builtin_unreachable();
 }
 
-noreturn void kkk2()
+noreturn void kkk2(void)
 {
     /*
     struct Thread *current_thread;
@@ -101,7 +123,7 @@ noreturn void kkk2()
         __builtin_unreachable();
         */
 
-    atomic_fetch_sub_explicit(&idle_cores_num, 1, memory_order_relaxed);
+    atomic_fetch_sub_explicit(&idle_cores_num, 1, memory_order_acquire);
     {
         ssize_t threads_num = atomic_load_explicit(&schedulable_threads_num, memory_order_relaxed);
         while (true) {
@@ -109,64 +131,74 @@ noreturn void kkk2()
                 atomic_fetch_add_explicit(&idle_cores_num, 1, memory_order_relaxed);
                 static_assert(offsetof(struct Core_Data, stack) + sizeof(kernel_gs_base.stack) == 65536);
                 // 不需要切换cr3
-                __asm__ (
-                        "rdgsbaseq %%rsp\n\t"
+                __asm__ volatile (
+                        "rdgsbase %%rsp\n\t"
                         "addq   %[size], %%rsp\n\t"
                         "wrmsr\n\t"
                         "sti\n\t"
                         "jmp   empty_loop"
                         :
                         :"c"((uint32_t)0x80b), "a"((uint32_t)0), "d"((uint32_t)0), [size]"i"(offsetof(struct Core_Data, stack) + sizeof(kernel_gs_base.stack))
-                        :);
+                        :"cc");
                 __builtin_unreachable();
             }
             if (atomic_compare_exchange_strong_explicit(&schedulable_threads_num, &threads_num, threads_num - 1, memory_order_relaxed, memory_order_relaxed))
                 break;
+            __asm__ volatile ("pause":::);
         }
     }
 
-    struct Spin_Mutex_Member spin_mutex_member;
-    spin_mutex_member_init(&spin_mutex_member);
-    spin_lock(&schedulable_threads_lock, &spin_mutex_member);
-    struct Thread *fake_schedulable_threads = schedulable_threads;
-    if (fake_schedulable_threads == NULL)
-        __builtin_unreachable();
-    struct Thread *const new_thread = fake_schedulable_threads;
-    CDL_DELETE(fake_schedulable_threads, new_thread);
-    schedulable_threads = fake_schedulable_threads;
-    spin_unlock(&schedulable_threads_lock, &spin_mutex_member);
+    struct Spin_Mutex_Member *p_spin_mutex_member;
+    __asm__ volatile ("movq     %%rsp, %0":"=r"(p_spin_mutex_member)::);
+    spin_mutex_member_init(p_spin_mutex_member);
+    struct Thread *new_thread;
+
+    atomic_signal_fence(memory_order_acq_rel);
+    spin_lock(&schedulable_threads_lock, p_spin_mutex_member);
     {
-        // 切换cr3
-        uint64_t *current_cr3;
-        __asm__ (
-                "movq   %%cr3, %0"
-                :"=r"(current_cr3)
-                :
-                :);
-        if (current_cr3 != new_thread->cr3) {
-            __asm__ (
-                    "movq   %0, %%cr3"
-                    :
-                    :"r"(new_thread->cr3)
-                    :);
+        struct Thread *fake_schedulable_threads = schedulable_threads;
+        if (fake_schedulable_threads == NULL)
+            __builtin_unreachable();
+        new_thread = fake_schedulable_threads;
+        DL_DELETE(fake_schedulable_threads, new_thread);
+        schedulable_threads = fake_schedulable_threads;
+    }
+    spin_unlock(&schedulable_threads_lock, p_spin_mutex_member);
+    atomic_signal_fence(memory_order_acq_rel);
+
+    struct Proc *const old_proc = kernel_gs_base.proc;
+    const uint64_t *const new_cr3 = new_thread->cr3;
+    if (new_cr3 != NULL) {
+        // new thread is not kernel thread
+        const struct Proc *const new_proc = new_thread->proc;
+        if (new_proc != old_proc)
+            __asm__ volatile("movq  %1, %%cr3":"+m"(__not_exist_global_sym_for_asm_seq):"r"(new_cr3):);
+        if (atomic_fetch_sub_explicit(&old_proc->threads_num, 1, memory_order_release) == 1) {
+            __asm__ volatile ("jmp abort":::);
+            __asm__ volatile ("nop":::);
+            __asm__ volatile ("nop":::);
+            __asm__ volatile ("nop":::);
+            __asm__ volatile ("nop":::);
         }
-    }
-    // 必须先切换cr3再减，因为减完cr3可能被其他线程清除
-    if (atomic_fetch_sub_explicit(&kernel_gs_base.proc->threads_num, 1, memory_order_relaxed) == 1) {
-        // 清理尸体 current_proc
-        // 待补充
-        abort();
-    }
+        kernel_gs_base.tss.rsp0 = (uintptr_t)&new_thread->stack[sizeof(new_thread->stack) / sizeof(new_thread->stack[0])];
+    } else
+        new_thread->proc = (struct Proc *)(uintptr_t)((uintptr_t)old_proc | 1);
 
     kernel_gs_base.running_thread = new_thread;
-    kernel_gs_base.tss.rsp0 = (uintptr_t)&new_thread->stack[sizeof(new_thread->stack) / sizeof(new_thread->stack[0])];
-    __asm__ (
-            "movq  %0, %%rsp\n\t"
-            "wrmsr\n\t"
-            "jmpq  *%1"
-            :
-            :"m"(new_thread->rsp), "m"(new_thread->return_hook)
-            , "c"((uint32_t)0x80b), "a"((uint32_t)0), "d"((uint32_t)0)
+    __asm__ volatile (
+            "movq   %1, %%rsp"
+            :"+m"(__not_exist_global_sym_for_asm_seq)
+            :"m"(new_thread->rsp)
+            :);
+    __asm__ volatile (
+            "wrmsr"
+            :"+m"(__not_exist_global_sym_for_asm_seq)
+            :"c"((uint32_t)0x80b), "a"((uint32_t)0), "d"((uint32_t)0)
+            :);
+    __asm__ volatile (
+            "jmpq   *%1"
+            :"+m"(__not_exist_global_sym_for_asm_seq)
+            :"m"(new_thread->return_hook)
             :);
     __builtin_unreachable();
 }

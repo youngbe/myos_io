@@ -12,125 +12,156 @@ kkk:                                    # @kkk
 	nop
 	#NO_APP
 	#APP
-	movq	%rsp, 16(%rcx)
+	movq  %rsp, 16(%rcx)
+	leaq  .Lreturn(%rip), %rax
 	#NO_APP
-	leaq	.Ltmp0(%rip), %rax
 	movq	%rax, 24(%rcx)
+	movq	40(%rcx), %rsi
+	movq	%rsi, %rdx
+	andq	$-2, %rdx
+	testb	$1, %sil
+	jne	.LBB0_2
+# %bb.1:
+	lock		incq	(%rdx)
+.LBB0_2:
 	movl	$0, -24(%rsp)
 	movq	$0, -16(%rsp)
+	#MEMBARRIER
 	leaq	-24(%rsp), %rax
-	movq	%rax, %rdx
-	xchgq	%rdx, schedulable_threads_lock(%rip)
-	testq	%rdx, %rdx
-	je	.LBB0_2
-# %bb.1:
-	movq	%rax, 8(%rdx)
-	#MEMBARRIER
-	xorl	%eax, %eax
-	#APP
-	.p2align	4, 0x90
-.Ltmp1:
-	cmpl	-24(%rsp), %eax
-	jne	.Ltmp2
-	pause
-	jmp	.Ltmp1
-.Ltmp2:
-	#NO_APP
-.LBB0_2:
-	#MEMBARRIER
-	movq	schedulable_threads(%rip), %rdi
+	movq	%rax, %rdi
+	xchgq	%rdi, schedulable_threads_lock(%rip)
 	testq	%rdi, %rdi
 	je	.LBB0_3
-# %bb.6:
-	movq	(%rdi), %rax
-	cmpq	%rdi, %rax
-	je	.LBB0_7
-# %bb.8:
-	movq	%rax, (%rcx)
-	movq	8(%rdi), %rdx
-	movq	%rdx, 8(%rcx)
-	movq	%rcx, 8(%rax)
-	movq	8(%rcx), %rax
-	movq	%rcx, (%rax)
-	movq	(%rcx), %rcx
-	jmp	.LBB0_9
-.LBB0_3:
-	xorl	%ecx, %ecx
-	leaq	-24(%rsp), %rax
-	lock		cmpxchgq	%rcx, schedulable_threads_lock(%rip)
-	je	.LBB0_5
 # %bb.4:
-	#APP
+	movq	%rax, 8(%rdi)
+	#MEMBARRIER
+	movl	-24(%rsp), %eax
+	testl	%eax, %eax
+	jne	.LBB0_7
 	.p2align	4, 0x90
-.Ltmp3:
-	movq	-16(%rsp), %rax
-	testq	%rax, %rax
-	jne	.Ltmp4
+.LBB0_5:                                # =>This Inner Loop Header: Depth=1
+	#APP
 	pause
-	jmp	.Ltmp3
-.Ltmp4:
 	#NO_APP
-	movl	$1, (%rax)
-.LBB0_5:
-	movl	$2059, %ecx                     # imm = 0x80B
-	xorl	%eax, %eax
-	xorl	%edx, %edx
-	#APP
-	popq	%rsp
-	addq	$104, %rsp
-	wrmsr
-	lock		incq	old_schedulable_threads_num(%rip)
-	jmp	.Lpop4_iretq
-	#NO_APP
+	movl	-24(%rsp), %eax
+	testl	%eax, %eax
+	je	.LBB0_5
+	jmp	.LBB0_7
+.LBB0_3:
+	#MEMBARRIER
 .LBB0_7:
-	movq	%rcx, (%rcx)
-	movq	%rcx, 8(%rcx)
-.LBB0_9:
-	movq	%rcx, schedulable_threads(%rip)
-	#APP
-	movq	%cr3, %rcx
-	#NO_APP
-	movq	32(%rdi), %rax
-	cmpq	%rax, %rcx
-	je	.LBB0_11
+	movq	schedulable_threads(%rip), %rdi
+	testq	%rdi, %rdi
+	je	.LBB0_12
+# %bb.8:
+	movq	8(%rdi), %rax
+	movq	%rax, 8(%rcx)
+	movq	8(%rdi), %rax
+	movq	%rcx, (%rax)
+	movq	%rcx, 8(%rdi)
+	movq	$0, (%rcx)
+	cmpq	%rdi, %rcx
+	je	.LBB0_9
 # %bb.10:
-	#APP
-	movq	%rax, %cr3
-	#NO_APP
+	movq	(%rdi), %rax
+	movq	%rcx, 8(%rax)
+	jmp	.LBB0_11
+.LBB0_9:
+	xorl	%eax, %eax
 .LBB0_11:
+	movq	%rax, schedulable_threads(%rip)
+.LBB0_12:
 	xorl	%ecx, %ecx
 	leaq	-24(%rsp), %rax
 	lock		cmpxchgq	%rcx, schedulable_threads_lock(%rip)
-	je	.LBB0_13
-# %bb.12:
-	#APP
+	je	.LBB0_16
 	.p2align	4, 0x90
-.Ltmp5:
+# %bb.14:
 	movq	-16(%rsp), %rax
 	testq	%rax, %rax
-	jne	.Ltmp6
-	pause
-	jmp	.Ltmp5
-.Ltmp6:
-	#NO_APP
-	movl	$1, (%rax)
-.LBB0_13:
-	movq	%rdi, kernel_gs_base(%rip)
-	leaq	2097152(%rdi), %rax
-	movq	%rax, kernel_gs_base+36(%rip)
-	movl	$2059, %ecx                     # imm = 0x80B
-	xorl	%eax, %eax
-	xorl	%edx, %edx
+	jne	.LBB0_15
+.LBB0_13:                               # =>This Inner Loop Header: Depth=1
 	#APP
-	movq	16(%rdi), %rsp
-	wrmsr
-	lock		incq	old_schedulable_threads_num(%rip)
-	jmpq	*24(%rdi)
+	pause
 	#NO_APP
-.Ltmp0:                                 # Block address taken
-# %bb.14:
+	movq	-16(%rsp), %rax
+	testq	%rax, %rax
+	je	.LBB0_13
+.LBB0_15:
+	movl	$1, (%rax)
+.LBB0_16:
+	#MEMBARRIER
+	testq	%rdi, %rdi
+	je	.LBB0_17
+# %bb.20:
+	movq	32(%rdi), %rax
+	testq	%rax, %rax
+	je	.LBB0_26
+# %bb.21:
+	cmpq	%rdx, 40(%rdi)
+	je	.LBB0_23
+# %bb.22:
+	#APP
+	movq  %rax, %cr3
+	#NO_APP
+.LBB0_23:
+	lock		decq	(%rdx)
+	jne	.LBB0_25
+# %bb.24:
+	#APP
+	jmp abort
+	#NO_APP
 	#APP
 	nop
+	#NO_APP
+	#APP
+	nop
+	#NO_APP
+	#APP
+	nop
+	#NO_APP
+	#APP
+	nop
+	#NO_APP
+.LBB0_25:
+	leaq	2097152(%rdi), %rax
+	movq	%rax, kernel_gs_base+36(%rip)
+	jmp	.LBB0_27
+.LBB0_17:
+	testb	$1, %sil
+	jne	.LBB0_19
+# %bb.18:
+	lock		decq	(%rdx)
+.LBB0_19:
+	movl	$2059, %ecx                     # imm = 0x80B
+	xorl	%eax, %eax
+	xorl	%edx, %edx
+	#APP
+	popq   %rsp
+	addq   $96, %rsp
+	wrmsr
+	#NO_APP
+	lock		incq	old_schedulable_threads_num(%rip)
+	#APP
+	jmp    .Lpop5_iretq
+	#NO_APP
+.LBB0_26:
+	orq	$1, %rsi
+	movq	%rsi, 40(%rdi)
+.LBB0_27:
+	movq	%rdi, kernel_gs_base(%rip)
+	#APP
+	movq   16(%rdi), %rsp
+	#NO_APP
+	movl	$2059, %ecx                     # imm = 0x80B
+	xorl	%eax, %eax
+	xorl	%edx, %edx
+	#APP
+	wrmsr
+	#NO_APP
+	lock		incq	old_schedulable_threads_num(%rip)
+	#APP
+	jmpq   *24(%rdi)
 	#NO_APP
 .Lfunc_end0:
 	.size	kkk, .Lfunc_end0-kkk
@@ -144,124 +175,148 @@ kkk2:                                   # @kkk2
 .Lkkk2$local:
 	.type	.Lkkk2$local,@function
 # %bb.0:
-	subq	$24, %rsp
 	lock		decq	idle_cores_num(%rip)
 	movq	schedulable_threads_num(%rip), %rax
-	.p2align	4, 0x90
-.LBB1_1:                                # =>This Inner Loop Header: Depth=1
 	testq	%rax, %rax
-	je	.LBB1_14
-# %bb.2:                                #   in Loop: Header=BB1_1 Depth=1
+	je	.LBB1_4
+	.p2align	4, 0x90
+.LBB1_2:                                # =>This Inner Loop Header: Depth=1
 	leaq	-1(%rax), %rcx
 	lock		cmpxchgq	%rcx, schedulable_threads_num(%rip)
-	jne	.LBB1_1
-# %bb.3:
-	movl	$0, (%rsp)
-	movq	$0, 8(%rsp)
-	movq	%rsp, %rax
-	movq	%rax, %rcx
-	xchgq	%rcx, schedulable_threads_lock(%rip)
-	testq	%rcx, %rcx
 	je	.LBB1_5
-# %bb.4:
-	movq	%rax, 8(%rcx)
-	#MEMBARRIER
-	xorl	%eax, %eax
+# %bb.3:                                #   in Loop: Header=BB1_2 Depth=1
 	#APP
-	.p2align	4, 0x90
-.Ltmp7:
-	cmpl	(%rsp), %eax
-	jne	.Ltmp8
 	pause
-	jmp	.Ltmp7
-.Ltmp8:
 	#NO_APP
-.LBB1_5:
-	#MEMBARRIER
-	movq	schedulable_threads(%rip), %rsi
-	movq	(%rsi), %rax
-	cmpq	%rsi, %rax
-	jne	.LBB1_7
-# %bb.6:
-	xorl	%eax, %eax
-	jmp	.LBB1_8
-.LBB1_7:
-	movq	8(%rsi), %rcx
-	movq	%rcx, 8(%rax)
-	movq	8(%rsi), %rcx
-	movq	%rax, (%rcx)
-	movq	(%rsi), %rax
-.LBB1_8:
-	movq	%rax, schedulable_threads(%rip)
-	xorl	%ecx, %ecx
-	movq	%rsp, %rax
-	lock		cmpxchgq	%rcx, schedulable_threads_lock(%rip)
-	jne	.LBB1_9
-# %bb.10:
-	#APP
-	movq	%cr3, %rcx
-	#NO_APP
-	movq	32(%rsi), %rax
-	cmpq	%rax, %rcx
-	jne	.LBB1_11
-.LBB1_12:
-	movq	kernel_gs_base+8(%rip), %rax
-	lock		decq	(%rax)
-	jne	.LBB1_13
-.LBB1_15:
-	callq	abort@PLT
-.LBB1_9:
-	#APP
-	.p2align	4, 0x90
-.Ltmp9:
-	movq	8(%rsp), %rax
 	testq	%rax, %rax
-	jne	.Ltmp10
-	pause
-	jmp	.Ltmp9
-.Ltmp10:
-	#NO_APP
-	movl	$1, (%rax)
-	#APP
-	movq	%cr3, %rcx
-	#NO_APP
-	movq	32(%rsi), %rax
-	cmpq	%rax, %rcx
-	je	.LBB1_12
-.LBB1_11:
-	#APP
-	movq	%rax, %cr3
-	#NO_APP
-	movq	kernel_gs_base+8(%rip), %rax
-	lock		decq	(%rax)
-	je	.LBB1_15
-.LBB1_13:
-	movq	%rsi, kernel_gs_base(%rip)
-	leaq	2097152(%rsi), %rax
-	movq	%rax, kernel_gs_base+36(%rip)
-	movl	$2059, %ecx                     # imm = 0x80B
-	xorl	%eax, %eax
-	xorl	%edx, %edx
-	#APP
-	movq	16(%rsi), %rsp
-	wrmsr
-	jmpq	*24(%rsi)
-	#NO_APP
-.LBB1_14:
+	jne	.LBB1_2
+.LBB1_4:
 	lock		incq	idle_cores_num(%rip)
 	movl	$2059, %ecx                     # imm = 0x80B
 	xorl	%eax, %eax
 	xorl	%edx, %edx
 	#APP
-	rdgsbaseq	%rsp
-	addq	$65536, %rsp                    # imm = 0x10000
+	rdgsbase %rsp
+	addq   $65536, %rsp
 	wrmsr
 	sti
-	jmp	empty_loop
+	jmp   empty_loop
+	#NO_APP
+.LBB1_5:
+	#APP
+	movq     %rsp, %rcx
+	#NO_APP
+	movl	$0, (%rcx)
+	movq	$0, 8(%rcx)
+	#MEMBARRIER
+	movq	%rcx, %rax
+	xchgq	%rax, schedulable_threads_lock(%rip)
+	testq	%rax, %rax
+	je	.LBB1_6
+# %bb.7:
+	movq	%rcx, 8(%rax)
+	#MEMBARRIER
+	movl	(%rcx), %eax
+	testl	%eax, %eax
+	jne	.LBB1_10
+	.p2align	4, 0x90
+.LBB1_8:                                # =>This Inner Loop Header: Depth=1
+	#APP
+	pause
+	#NO_APP
+	movl	(%rcx), %eax
+	testl	%eax, %eax
+	je	.LBB1_8
+	jmp	.LBB1_10
+.LBB1_6:
+	#MEMBARRIER
+.LBB1_10:
+	movq	schedulable_threads(%rip), %rsi
+	movq	8(%rsi), %rdx
+	cmpq	%rsi, %rdx
+	je	.LBB1_11
+# %bb.12:
+	movq	(%rsi), %rax
+	movq	%rdx, 8(%rax)
+	jmp	.LBB1_13
+.LBB1_11:
+	xorl	%eax, %eax
+.LBB1_13:
+	movq	%rax, schedulable_threads(%rip)
+	xorl	%edx, %edx
+	movq	%rcx, %rax
+	lock		cmpxchgq	%rdx, schedulable_threads_lock(%rip)
+	je	.LBB1_17
+	.p2align	4, 0x90
+# %bb.15:
+	movq	8(%rcx), %rax
+	testq	%rax, %rax
+	jne	.LBB1_16
+.LBB1_14:                               # =>This Inner Loop Header: Depth=1
+	#APP
+	pause
+	#NO_APP
+	movq	8(%rcx), %rax
+	testq	%rax, %rax
+	je	.LBB1_14
+.LBB1_16:
+	movl	$1, (%rax)
+.LBB1_17:
+	#MEMBARRIER
+	movq	kernel_gs_base+8(%rip), %rax
+	movq	32(%rsi), %rcx
+	testq	%rcx, %rcx
+	je	.LBB1_23
+# %bb.18:
+	cmpq	%rax, 40(%rsi)
+	je	.LBB1_20
+# %bb.19:
+	#APP
+	movq  %rcx, %cr3
+	#NO_APP
+.LBB1_20:
+	lock		decq	(%rax)
+	jne	.LBB1_22
+# %bb.21:
+	#APP
+	jmp abort
+	#NO_APP
+	#APP
+	nop
+	#NO_APP
+	#APP
+	nop
+	#NO_APP
+	#APP
+	nop
+	#NO_APP
+	#APP
+	nop
+	#NO_APP
+.LBB1_22:
+	leaq	2097152(%rsi), %rax
+	movq	%rax, kernel_gs_base+36(%rip)
+	jmp	.LBB1_24
+.LBB1_23:
+	orq	$1, %rax
+	movq	%rax, 40(%rsi)
+.LBB1_24:
+	movq	%rsi, kernel_gs_base(%rip)
+	#APP
+	movq   16(%rsi), %rsp
+	#NO_APP
+	movl	$2059, %ecx                     # imm = 0x80B
+	xorl	%eax, %eax
+	xorl	%edx, %edx
+	#APP
+	wrmsr
+	#NO_APP
+	#APP
+	jmpq   *24(%rsi)
 	#NO_APP
 .Lfunc_end1:
 	.size	kkk2, .Lfunc_end1-kkk2
 	.size	.Lkkk2$local, .Lfunc_end1-kkk2
                                         # -- End function
-	.ident	"Ubuntu clang version 16.0.0 (1~exp1ubuntu2)"
+	.ident	"Ubuntu clang version 16.0.0 (1~exp5ubuntu3)"
 	.section	".note.GNU-stack","",@progbits

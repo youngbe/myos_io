@@ -35,13 +35,13 @@ static inline void spin_mutex_init(spin_mtx_t *const spin_mutex)
     *spin_mutex = NULL;
 }
 
-static inline void spin_mutex_member_init(struct Spin_Mutex_Member *const spin_mutex_member)
+static inline void __attribute__((always_inline)) spin_mutex_member_init(struct Spin_Mutex_Member *const spin_mutex_member)
 {
     spin_mutex_member->is_locked = 0;
     spin_mutex_member->next = NULL;
 }
 
-static inline void spin_lock(spin_mtx_t *const spin_mutex, struct Spin_Mutex_Member *const spin_mutex_member)
+static inline void __attribute__((always_inline)) spin_lock(spin_mtx_t *const spin_mutex, struct Spin_Mutex_Member *const spin_mutex_member)
 {
     // 为保证性能，这几句需要连着一起执行
 
@@ -56,10 +56,9 @@ static inline void spin_lock(spin_mtx_t *const spin_mutex, struct Spin_Mutex_Mem
     // 需要保证上面一句执行后才能执行下一句
     atomic_signal_fence(memory_order_acq_rel);
     //while (atomic_load_explicit((volatile _Atomic(__typeof__(spin_mutex_member->is_locked)) *)&spin_mutex_member->is_locked, memory_order_acquire) == 0) {}
-    /*
     while (atomic_load_explicit((volatile _Atomic(__typeof__(spin_mutex_member->is_locked)) *)&spin_mutex_member->is_locked, memory_order_acquire) == 0)
-        __asm__ volatile("");
-        */
+        __asm__ volatile("pause":::);
+    /*
     __asm__ volatile (
             ".p2align	4, 0x90\n"
             "1:\n\t"
@@ -72,6 +71,7 @@ static inline void spin_lock(spin_mtx_t *const spin_mutex, struct Spin_Mutex_Mem
             :"r"((uint32_t)0)
             :);
     atomic_signal_fence(memory_order_acquire);
+    */
 }
 
 static inline void __attribute__((always_inline)) spin_unlock(spin_mtx_t *const spin_mutex, struct Spin_Mutex_Member *const spin_mutex_member)
@@ -83,6 +83,9 @@ static inline void __attribute__((always_inline)) spin_unlock(spin_mtx_t *const 
         return;
     }
     //while ((temp = atomic_load_explicit((volatile _Atomic(__typeof__(spin_mutex_member->next)) *)&spin_mutex_member->next, memory_order_relaxed)) == NULL) {}
+    while ((temp = atomic_load_explicit((volatile _Atomic(__typeof__(spin_mutex_member->next)) *)&spin_mutex_member->next, memory_order_relaxed)) == NULL)
+        __asm__ volatile ("pause":::);
+    /*
     __asm__ volatile (
             ".p2align	4, 0x90\n"
             "1:\n\t"
@@ -95,5 +98,6 @@ static inline void __attribute__((always_inline)) spin_unlock(spin_mtx_t *const 
             :"=r"(temp), "+m"(spin_mutex_member->next)
             :
             :);
+            */
     atomic_store_explicit((_Atomic(__typeof__(temp->is_locked)) *)&temp->is_locked, 1, memory_order_release);
 }

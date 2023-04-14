@@ -169,37 +169,45 @@ static bool os_random_buf(void* buf, size_t buf_len) {
   while (buf_len >= 8) {
     buf_len -= 8;
     __asm__ volatile (
-      "rdrandq %0"
+      "1:\n\t"
+      "rdrand %0\n\t"
+      "jnc  1b"
     :"=r"(*(uint64_t *)buf)
     :
-    :);
+    :"cc");
     buf = (void *)((uintptr_t)buf + 8);
   }
   while (buf_len >= 4) {
     buf_len -= 4;
     __asm__ volatile (
-      "rdrandl %0"
+      "1:\n\t"
+      "rdrand %0\n\t"
+      "jnc  1b"
     :"=r"(*(uint32_t *)buf)
     :
-    :);
+    :"cc");
     buf = (void *)((uintptr_t)buf + 4);
   }
   while (buf_len >= 2) {
     buf_len -= 2;
     __asm__ volatile (
-      "rdrandw %0"
+      "1:\n\t"
+      "rdrand %0\n\t"
+      "jnc  1b"
     :"=r"(*(uint16_t *)buf)
     :
-    :);
+    :"cc");
     buf = (void *)((uintptr_t)buf + 2);
   }
   if (buf_len != 0) {
     uint16_t temp;
     __asm__ volatile (
-    "rdrandw %0"
+      "1:\n\t"
+      "rdrand %0\n\t"
+      "jnc  1b"
     :"=r"(temp)
     :
-    :);
+    :"cc");
     *(uint8_t *)buf = temp;
   }
   return true;
@@ -208,10 +216,12 @@ static bool os_random_buf(void* buf, size_t buf_len) {
 uintptr_t _mi_os_random_weak(uintptr_t) {
   uintptr_t x;
   __asm__ volatile (
-      "rdrandq %0"
+      "1:\n\t"
+      "rdrand %0\n\t"
+      "jnc  1b"
     :"=r"(x)
     :
-    :);
+    :"cc");
   return x;
 }
 

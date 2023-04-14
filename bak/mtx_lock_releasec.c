@@ -73,7 +73,7 @@ int __attribute__((noinline)) mtx_lockx(mtx_t*const mtx, const size_t core_id_16
             goto label_return;
         }
     }
-    CDL_APPEND(mtx->blocked_threads, current_thread);
+    DL_APPEND(mtx->blocked_threads, current_thread);
 
     {
         uint64_t unlocked = 0;
@@ -100,7 +100,7 @@ int __attribute__((noinline)) mtx_lockx(mtx_t*const mtx, const size_t core_id_16
                 :label_wakeup);
     } else {
         struct Thread *const new_thread = fake_schedulable_threads;
-        CDL_DELETE2(fake_schedulable_threads, new_thread, schedulable_threads_prev, schedulable_threads_next);
+        DL_DELETE2(fake_schedulable_threads, new_thread, schedulable_threads_prev, schedulable_threads_next);
         schedulable_threads = fake_schedulable_threads;
         atomic_store_explicit(&schedulable_threads_lock, 0, memory_order_relaxed);
         {

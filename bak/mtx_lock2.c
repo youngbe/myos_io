@@ -50,7 +50,7 @@ static int __attribute__((always_inline)) mtx_lockx(mtx_t*const mtx, const size_
         }
     }
     // 接下来在sti_spin_unlock之前，owner都不会变成NULL
-    CDL_APPEND(mtx->blocked_threads, current_thread);
+    DL_APPEND(mtx->blocked_threads, current_thread);
     sti_spin_unlock(&mtx->spin_mtx, sti);
 
 
@@ -61,7 +61,7 @@ static int __attribute__((always_inline)) mtx_lockx(mtx_t*const mtx, const size_
         // 切换至专属Thread
         __asm__ volatile("jmp   empty_thread":::);
     }
-    CDL_DELETE2(schedulable_threads, new_thread, schedulable_threads_prev, schedulable_threads_next);
+    DL_DELETE2(schedulable_threads, new_thread, schedulable_threads_prev, schedulable_threads_next);
     sti_spin_unlock((uint64_t *)&schedulable_threads_lock, sti);
     _running_threads[core_id] = new_thread;
 

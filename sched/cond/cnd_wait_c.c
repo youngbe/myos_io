@@ -1,7 +1,6 @@
 #include <threads.h>
 
 #include "sched-internal.h"
-#include "mtx_lock.h"
 #include "mcs_spin.h"
 #include "thrd_current.h"
 
@@ -9,20 +8,18 @@
 
 #include <utlist.h>
 
-#include <stdatomic.h>
-#include <stdlib.h>
-
 extern struct Core_Data kernel_gs_base;
-int mtx_lock(mtx_t*const mtx)
+
+int cnd_wait(cnd_t *const cond, mtx_t *const mtx)
 {
     const thrd_t current_thread = thrd_currentx();
-    {
-        const int ret = mtx_trylockx(mtx, current_thread);
-        if (ret != thrd_busy)
-            return ret;
-    }
-
-
+    if (atomic_load_explicit(&mtx->owner, memory_order_relaxed) != current_thread)
+        return thrd_error;
+    const bool need_lock = mtx->count < 2;
+    if (need_lock)
+        current_thread->temp0 = (uintptr_t)mtx;
+    else
+        current_thread->temp0 = 0;
     struct Proc *current_proc;
     bool current_is_kernel;
     {
@@ -35,7 +32,6 @@ int mtx_lock(mtx_t*const mtx)
     if (!current_is_kernel)
         atomic_fetch_add_explicit(&current_proc->threads_num, 1, memory_order_relaxed);
     atomic_signal_fence(memory_order_release);
-    uint64_t rflags;
     struct Spin_Mutex_Member *p_spin_mutex_member;
     // 保存上下文 && spin_mutex_init && cli
     {
@@ -53,9 +49,8 @@ int mtx_lock(mtx_t*const mtx)
                 "rdfsbase   %0\n\t"
                 "pushq      %0\n\t"
                 "pushfq\n\t"
-                "movq       (%%rsp), %0\n\t"
                 "subq       $24, %%rsp"
-                :"=r"(rflags), "+m"(__not_exist_global_sym_for_asm_seq)
+                :"=r"(temp), "+m"(__not_exist_global_sym_for_asm_seq)
                 :
                 :"cc");
         __asm__ volatile (
@@ -76,53 +71,83 @@ int mtx_lock(mtx_t*const mtx)
                 :);
         atomic_signal_fence(memory_order_acquire);
     }
-    const bool is_sti = rflags & 512;
     current_thread->rsp = (void *)((uintptr_t)p_spin_mutex_member + 16);
     current_thread->return_hook = &&label_wakeup;
 
 
-    bool flag = false;
-    thrd_t mtx_owner = NULL;
+    // 上锁
+    // 睡
+    // 解锁:从这里开始原栈不可用
+    atomic_signal_fence(memory_order_acq_rel);
+    spin_lock(&cond->spin_mtx, p_spin_mutex_member);
+    {
+        struct Thread *fake_threads = cond->threads;
+        DL_APPEND(fake_threads, current_thread);
+        cond->threads = fake_threads;
+    }
+    spin_unlock(&cond->spin_mtx, p_spin_mutex_member);
+    atomic_signal_fence(memory_order_acq_rel);
+
+    // 借用空闲栈
+    __asm__ volatile (
+            "rdgsbase   %%rsp\n\t"
+            "addq       $65520, %%rsp"
+            :"+m"(__not_exist_global_sym_for_asm_seq)
+            :
+            :"cc");
+
+    if (!need_lock) {
+        __asm__ goto volatile (
+                "jmp    switch_to_empty"
+                :
+                :"D"(current_proc)
+                :
+                :label_wakeup);
+        __builtin_unreachable();
+    }
+
+    __asm__ volatile (
+            "movq     %%rsp, %0"
+            :"=r"(p_spin_mutex_member), "+m"(__not_exist_global_sym_for_asm_seq)
+            :
+            :);
+
+    spin_mutex_member_init(p_spin_mutex_member);
+    struct Thread *new_owner;
+    // 上锁
+    // unlock
+    // 解锁
     atomic_signal_fence(memory_order_acq_rel);
     spin_lock(&mtx->spin_mtx, p_spin_mutex_member);
     {
-        if (!atomic_compare_exchange_strong_explicit(&mtx->owner, &mtx_owner, current_thread, memory_order_relaxed, memory_order_relaxed)) {
-            //if (mtx_owner == NULL)
-            //    __builtin_unreachable();
-            struct Thread *fake_blocked_threads = mtx->blocked_threads;
-            DL_APPEND(fake_blocked_threads, current_thread);
+        new_owner = mtx->blocked_threads;
+        if (new_owner == NULL)
+            atomic_store_explicit(&mtx->owner, NULL, memory_order_relaxed);
+        else {
+            struct Thread *fake_blocked_threads = new_owner;
+            DL_DELETE(fake_blocked_threads, new_owner);
             mtx->blocked_threads = fake_blocked_threads;
-        } else
-            flag = true;
-        //else if (mtx_owner != NULL)
-        //    __builtin_unreachable();
+        }
     }
     spin_unlock(&mtx->spin_mtx, p_spin_mutex_member);
     atomic_signal_fence(memory_order_acq_rel);
-    if (flag) {
-        if (is_sti)
-            __asm__ volatile ("sti":"+m"(__not_exist_global_sym_for_asm_seq)::);
-        atomic_signal_fence(memory_order_acquire);
-        // 还原临时增加的虚拟线程数
-        // 这里不会导致线程数减为0，因为本线程还在运行
-        if (!current_is_kernel)
-            atomic_fetch_sub_explicit(&current_proc->threads_num, 1, memory_order_relaxed);
-        __asm__ volatile ("addq  $104, %%rsp":"+m"(__not_exist_global_sym_for_asm_seq)::"cc");
-        return thrd_success;
+
+    // 如果没有解锁出新线程 find_hook()
+    if (new_owner != NULL) {
+        // 在unlock之后再存
+        atomic_store_explicit(&mtx->owner, new_owner, memory_order_relaxed);
+        __asm__ volatile goto ("jmp switch_to"::"D"(new_owner), "S"(current_proc)::label_wakeup);
+        __builtin_unreachable();
+    } else {
+        __asm__ goto volatile (
+                "jmp    switch_to_empty"
+                :
+                :"D"(current_proc)
+                :
+                :label_wakeup);
+        __builtin_unreachable();
     }
 
-
-    __asm__ volatile goto (
-            "rdgsbase   %%rsp\n\t"
-            "addq       %0, %%rsp\n\t"
-            "jmp        switch_to_empty"
-            :
-            :"i"(offsetof(struct Core_Data, stack) + sizeof(kernel_gs_base.stack) - 16), "D"(current_proc)
-            :"cc"
-            :label_wakeup);
-    __builtin_unreachable();
-
-    // 线程下次被唤醒就从这里开始运行
     {
 label_wakeup:
         __asm__ volatile (

@@ -4,10 +4,9 @@
 // 2. bootloader 应该通过cpuid指令确保bsp可以运行system V abi x86-64-v3指令集的所有指令，并且在配置完x86-64-v3运行环境后，才能进入内核，具体包括以下几个方面：
 // 2.1 页表：使用PAE分页模式（4级分页）；使用 0 - 512G内存地址 上 f(x) = x 映射关系页表，(使用1G大页进行映射，只需两张页表即可(8K))，保证内核对该区域内存有读写权限；页表保存在 4k - 16M的空闲内存中
 // 2.2 段描述符表：使用lgdt加载段描述符表，%cs设为 long mode code descriptor with ring 0, %ds, %es, %fs, %gs, %ss设为0；段描述符表的保存在 4k - 16M 空闲内存中
-// 2.3 运行内核前，以System V ABI x86-64-v3 运行新进程的标准正确设置寄存器状态，参考 System V ABI 3.4.1 Register State的部分
-// 2.4 %rsp对齐16字节后跳转入内核入口(jmp)
-// 2.5 其他System V ABI要求的新进程初始化项目可忽略，如输入参数，环境变量, thread state, Auxiliary Vector 等
-// 2.6 配置控制寄存器来开启x86-64-v3，参考下文 控制寄存器说明
+// 2.3 运行内核前，以System V ABI x86-64-v3 运行新进程的标准正确设置寄存器状态(%rsp除外)，参考 System V ABI 3.4.1 Register State的部分
+// 2.4 其他System V ABI要求的新进程初始化项目可忽略，如输入参数，环境变量, thread state, Auxiliary Vector 等
+// 2.5 配置控制寄存器来开启x86-64-v3，参考下文 控制寄存器说明
 //
 // 3. 除了保证x86-64-v3外，bootloader还需使用CPUID指令保证bsp具备APIC, x2APIC, FSGSBASE, MSR寄存器(rdmsr/wrmsr指令可用)的功能，同时保证bsp 的 EAX Maximum Input Value for Basic CPUID Information(return to %eax from calling cpuid with %eax == 0) 至少为 0xd；配置cr4寄存器保证FSGSBASE可用（参考下文 控制寄存器说明）
 //
@@ -98,23 +97,12 @@ _start:
     movq    $(1 << 5) | (1 << 9) | (1 << 16) | (1 << 18), %rax
     movq    %rax, %cr4
 
-    # CPUID with %eax == 0xd, %ecx == 0, 返回xcr0可设置位
-    movl    $0xd, %eax
-    xorl    %ecx, %ecx
-    cpuid
-    # 启用x87, sse, avx, avx2, 如果可能，启用avx-512
-    # 禁用MPX, AMX和其他没用的功能
-    xorl    %ecx, %ecx
-    xorl    %edx, %edx
-    andl    $0b11100111, %eax
-    xsetbv
-
     ldmxcsr __mxcsr_status_fast_math(%rip)
 
     callq   pie_relocate
     // init tty
     callq   kernel_init_part0
-    // init gdt, idt, tss, x2apic, gs_base, bsp's core_data
+    // init idt, bsp's gdt, idtr, tss, x2apic, gs_base
     callq   kernel_init_part1
     // init mmap
     movq    %rbp, %rdi
@@ -122,12 +110,28 @@ _start:
     callq   kernel_init_part2
     // init mimalloc
     callq   kernel_init_part3
-    // init multicore, timer_isr.xsave_area_size
+    // init multicore:
+    // init ap's gdt, idt, tss, gsbase, x2apic
+    // update timer_isr.xsave_area_size
+    // update idle_cores_num
+    // update timer_isr
     movq    %r13, %rdi
     callq   kernel_init_part4
+    // init stdio lock
     callq   kernel_init_part5
 
     sti
+
+    leaq    __preinit_array_start(%rip), %rbp
+    leaq    __preinit_array_end(%rip), %rbx
+1:
+    cmpq    %rbp, %rbx
+    je      1f
+    callq   *(%rbp)
+    addq    $8, %rbp
+    jmp     1b
+1:
+
     callq   kernel_main
 
     .globl __mxcsr_status_fast_math

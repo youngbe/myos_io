@@ -175,15 +175,12 @@ __ap_startup_code_segment:
     # xcr0[1]: sse
     # xcr0[2]: avx
     movl    $0b111, %edi
-    andl    %edi, %esi
-    cmpl    %edi, %esi
+    andl    %edi, %eax
+    cmpl    %edi, %eax
     jne     .Lcpu_failed
 
-    # 启用x87, sse, avx, avx2, 如果可能，启用avx-512
-    # 禁用MPX, AMX和其他没用的功能
     xorl    %ecx, %ecx
     xorl    %edx, %edx
-    andl    $0b11100111, %eax
     xsetbv
 
     lgdtl   .Lgdt - ap_start16

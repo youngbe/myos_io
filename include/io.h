@@ -79,7 +79,7 @@ static inline void wait(size_t count)
             "loop ."
             :"+c"(count), "+m"(__not_exist_global_sym_for_asm_seq)
             :
-            :);
+            :"cc");
     if (count != 0)
         __builtin_unreachable();
 }

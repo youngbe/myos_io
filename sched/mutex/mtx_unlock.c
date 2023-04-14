@@ -3,7 +3,6 @@
 #include "sched-internal.h"
 #include "thrd_current.h"
 #include "mcs_spin.h"
-#include "set_thread_schedulable.h"
 
 #include <io.h>
 
@@ -24,7 +23,7 @@ static struct Thread *__attribute__((noinline)) mtx_unlock_part1(mtx_t*const mtx
         atomic_store_explicit(&mtx->owner, NULL, memory_order_relaxed);
     else {
         thrd_t fake_blocked_threads = ret;
-        CDL_DELETE(fake_blocked_threads, ret);
+        DL_DELETE(fake_blocked_threads, ret);
         mtx->blocked_threads = fake_blocked_threads;
     }
     spin_unlock(&mtx->spin_mtx, p_spin_mutex_member);
@@ -63,7 +62,7 @@ int mtx_unlock(mtx_t*const mtx)
     if (mtx_owner != NULL) {
         atomic_store_explicit(&mtx->owner, mtx_owner, memory_order_relaxed);
         spin_mutex_member_init(&spin_mutex_member);
-        set_thread_schedulablex(mtx_owner, is_sti, &spin_mutex_member);
+        set_thread_schedulable(mtx_owner, is_sti, &spin_mutex_member);
     }
     return thrd_success;
 }

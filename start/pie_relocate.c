@@ -17,5 +17,4 @@ void pie_relocate()
         *(void **)((uintptr_t)__virtual_null + rela->r_offset) = (void *)((uintptr_t)__virtual_null + rela->r_addend);
         ++rela;
     }
-    __asm__ volatile ("":::"memory");
 }

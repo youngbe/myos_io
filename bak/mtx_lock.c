@@ -38,7 +38,7 @@ static int __attribute__((noinline)) mtx_lockx(mtx_t*const mtx, const size_t cor
         }
     }
     // 接下来在sti_spin_unlock之前，owner都不会变成NULL
-    CDL_APPEND(mtx->blocked_threads, current_thread);
+    DL_APPEND(mtx->blocked_threads, current_thread);
     // 该线程已经变成僵尸线程，一旦解锁，可能被其他线程解锁运行，因此需要先找到新的栈
     // 查看线程列表是否有可以切换的线程，换栈，解锁
     uint64_t unlock = 0;
@@ -51,7 +51,7 @@ static int __attribute__((noinline)) mtx_lockx(mtx_t*const mtx, const size_t cor
         // 待补充
         abort();
     }
-    CDL_DELETE2(schedulable_threads, new_thread, schedulable_threads_prev, schedulable_threads_next);
+    DL_DELETE2(schedulable_threads, new_thread, schedulable_threads_prev, schedulable_threads_next);
 
     atomic_store_explicit(&schedulable_threads_lock, 0, memory_order_release);
 

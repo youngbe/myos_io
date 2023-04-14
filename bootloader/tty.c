@@ -34,8 +34,6 @@ void console_init()
         VIDMEM[i + 1] = CHAR_ATTR;
     }
 
-    __asm__ volatile (""::"m"(*(char (*)[ROWS * COLS * 2])VIDMEM):);
-
     x = (pos >> 1) % 80;
     y = (pos >> 1) / 80;
 }

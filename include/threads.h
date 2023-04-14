@@ -38,6 +38,13 @@ enum
   mtx_timed     = 2
 };
 
+struct Cond
+{
+    struct Thread* threads;
+    spin_mtx_t spin_mtx;
+};
+typedef struct Cond cnd_t;
+
 thrd_t thrd_current(void);
 
 // 注意：mtx_init,mtx_destroy 对 mtx_lock,mtx_trylock,mtx_unlock 不是线程安全的
@@ -47,6 +54,11 @@ void mtx_destroy(mtx_t *mtx);
 int mtx_lock(mtx_t *mtx);
 int mtx_trylock(mtx_t *mtx);
 int mtx_unlock(mtx_t *mtx);
+
+int cnd_init(cnd_t *cond);
+int cnd_broadcast(cnd_t *cond);
+int cnd_wait(cnd_t *cond, mtx_t *mtx);
+int cnd_signal(cnd_t *cond);
 
 typedef int (* thrd_start_t)(void*);
 int thrd_create(thrd_t *thr, thrd_start_t func, void *arg);

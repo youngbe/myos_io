@@ -1,15 +1,25 @@
 #!/bin/bash
-LTO_CFLAGS=(-flto=full -fno-split-lto-unit -fwhole-program-vtables)
-LTO_CCLDFLAGS=(-Wl,--lto-partitions=1 -Wl,--lto-whole-program-visibility -Wl,--no-lto-legacy-pass-manager)
+
+CC=clang-16
+
+#LTO_FLAGS=(-flto -fwhole-program -flto-partition=none -flto-compression-level=0 -fuse-linker-plugin -fno-fat-lto-objects)
+LTO_FLAGS=(-flto=full -fno-split-lto-unit -fwhole-program-vtables -Wl,--lto-partitions=1 -Wl,--lto-whole-program-visibility -Wl,--no-lto-legacy-pass-manager)
 
 BASE_CPPFLAGS=(-std=gnu2x -DNDEBUG -D__NO_CTYPE -U_FORTIFY_SOURCE -U__linux__ -U__linux -Ulinux -U__gnu_linux__)
+#BASE_CFLAGS=(
+#    -march=x86-64-v3 -mtune=generic
+#    -Ofast -fdelete-dead-exceptions -ffinite-loops -fipa-pta -fdevirtualize-at-ltrans -fmerge-all-constants -funroll-loops
+#    -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables
+#    -fstack-check=no -fno-stack-clash-protection -fno-stack-protector -fno-split-stack -fcf-protection=none -fno-sanitize=all -fno-instrument-functions
+#    -mno-red-zone -std=gnu2x -Wall -Wextra -Wstrict-prototypes -Wshadow
+#)
 BASE_CFLAGS=(-Xclang -pic-level -Xclang 0 -fno-addrsig -march=x86-64-v3 -mtune=generic
     -Ofast -fmerge-all-constants -ffunction-sections -fdata-sections
     -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-stack-check -fno-stack-clash-protection -fno-stack-protector -fno-split-stack -fcf-protection=none -fno-sanitize=all
     -mno-red-zone -std=gnu2x -Wall -Wextra -Wstrict-prototypes -Wshadow)
 BASE_LDFLAGS=(-z noexecstack -z norelro -z lazy --no-eh-frame-hdr --build-id=none --gc-sections)
 BASE_CCLDFLAGS=(-fuse-ld=lld -z noexecstack -z norelro -z lazy -Wl,--no-eh-frame-hdr -Wl,--build-id=none -nolibc -nostartfiles -Wl,--gc-sections)
-#BASE_CCLDFLAGS=(-Wl,--no-ld-generated-unwind-info -z noexecstack -z norelro -z lazy -Wl,--no-eh-frame-hdr -Wl,--build-id=none -nolibc -nostartfiles -Wl,--gc-sections "${LTO_LDFLAGS[@]}")
+#BASE_CCLDFLAGS=(-Wl,--no-ld-generated-unwind-info -z noexecstack -z norelro -z lazy -Wl,--no-eh-frame-hdr -Wl,--build-id=none -nolibc -nostartfiles -Wl,--gc-sections)
 
 BOOTLOADER_CPPFLAGS=(-I bootloader)
 BOOTLOADER_CFLAGS=(-fno-pie -m32)
@@ -38,8 +48,8 @@ for src_file in "${src_files[@]}"
 do
     out_file="out/${src_file}.o"
     mkdir -p $(dirname ${out_file})
-    hang_run clang -I lib/libc/include "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" \
-        "${BASE_CFLAGS[@]}" "${KERNEL_CFLAGS[@]}" -ffp-contract=on -fno-fast-math -frounding-math -Wno-unused-but-set-variable -Wno-unused-parameter \
+    hang_run "$CC" -I lib/libc/include "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" \
+        "${BASE_CFLAGS[@]}" "${KERNEL_CFLAGS[@]}" -ffp-contract=on -fno-fast-math -frounding-math -w \
         "$src_file" -c -o "$out_file"
     out_files+=($out_file)
 done
@@ -52,37 +62,37 @@ for src_file in "${src_files[@]}"
 do
     out_file="out/${src_file}.o"
     mkdir -p $(dirname ${out_file})
-    hang_run clang -I lib/libc/include "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" -D_GNU_SOURCE \
-        "${BASE_CFLAGS[@]}" "${KERNEL_CFLAGS[@]}" -Wno-sign-compare -Wno-shift-op-parentheses -Wno-shadow -Wno-constant-logical-operand -Wno-unused-parameter \
+    hang_run "$CC" -I lib/libc/include "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" -D_GNU_SOURCE \
+        "${BASE_CFLAGS[@]}" "${KERNEL_CFLAGS[@]}" -w \
         "$src_file" -c -o "$out_file"
     out_files+=($out_file)
 done
 
 # mimalloc
 mkdir -p out/lib/libc/stdlib/mimalloc/src
-hang_run clang -I lib/libc/stdlib/mimalloc/include "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" \
-    "${BASE_CFLAGS[@]}" "${KERNEL_CFLAGS[@]}" -Wno-static-in-inline -Wno-constant-logical-operand -Wno-unused-but-set-variable -Wno-incompatible-pointer-types-discards-qualifiers -Wno-deprecated-pragma \
+hang_run "$CC" -I lib/libc/stdlib/mimalloc/include "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" \
+    "${BASE_CFLAGS[@]}" "${KERNEL_CFLAGS[@]}" -w -std=c11 \
     lib/libc/stdlib/mimalloc/src/static.c -c -o out/lib/libc/stdlib/mimalloc/src/static.o
 out_files+=(out/lib/libc/stdlib/mimalloc/src/static.o)
 
 # sched模块
-out_files+=(sched/mutex/mtx_lock.s sched/mutex/find_hook.s sched/timer_isr/timer_isr.s
+out_files+=(sched/mutex/mtx_lock_c.s sched/cond/empty_switch.s sched/cond/cnd_wait_c.s sched/timer_isr/timer_isr.s
 sched/empty_loop.s sched/spurious_isr.s sched/empty_isr.s sched/thread_start.s sched/abort_handler.s sched/new_thread_isr.s)
 src_files=(sched/static.c)
 for src_file in "${src_files[@]}"
 do
     out_file="out/${src_file}.i"
     mkdir -p $(dirname ${out_file})
-    hang_run clang -I sched/include "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" \
+    hang_run "$CC" -I sched/include "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" \
         "$src_file" -E -o "$out_file"
     out_files+=($out_file)
 done
 
 wait
 
-clang "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" \
-    "${BASE_CFLAGS[@]}" "${KERNEL_CFLAGS[@]}" "${LTO_CFLAGS[@]}" \
-    "${BASE_CCLDFLAGS[@]}" "${KERNEL_CCLDFLAGS[@]}" "${LTO_CCLDFLAGS[@]}" \
+"$CC" "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" \
+    "${BASE_CFLAGS[@]}" "${KERNEL_CFLAGS[@]}" "${LTO_FLAGS[@]}" \
+    "${BASE_CCLDFLAGS[@]}" "${KERNEL_CCLDFLAGS[@]}" \
     start/_start.s start/pie_relocate.c start/ap_start16.s start/ap_start64.s \
     driver/tty.c driver/config_x2apic.c mm/static.c \
     main.c \
@@ -103,8 +113,8 @@ objcopy -O binary \
 
 kernel_size=$(stat -c '%s' kernel.bin)
 
-clang "${BASE_CPPFLAGS[@]}" "${BOOTLOADER_CPPFLAGS[@]}" -DKERNEL_SIZE=${kernel_size} \
-    "${BASE_CFLAGS[@]}" "${BOOTLOADER_CFLAGS[@]}" \
+"$CC" "${BASE_CPPFLAGS[@]}" "${BOOTLOADER_CPPFLAGS[@]}" -DKERNEL_SIZE=${kernel_size} \
+    "${BASE_CFLAGS[@]}" "${BOOTLOADER_CFLAGS[@]}" "${LTO_FLAGS[@]}" \
     "${BASE_CCLDFLAGS[@]}" "${BOOTLOADER_CCLDFLAGS[@]}" \
     bootloader/code16.s bootloader/main.c bootloader/tty.c bootloader/printb.c bootloader/string.c bootloader/e820.c bootloader/qsort.c bootloader/load_kernel.c bootloader/page_table.c bootloader/enter64.s bootloader/disable_8259a.c \
     bootloader/ffreestanding32.s \

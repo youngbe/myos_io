@@ -76,7 +76,7 @@ noreturn void kernel_init_part0(const struct E820_Entry *const e820_entrys, cons
             }
             blocks_buf[memory_blocks_alloced_num].addr = 0x1000000;
             blocks_buf[memory_blocks_alloced_num].size = (uintptr_t)__virtual_null - 0x1000000;
-            CDL_APPEND(blocks, &blocks_buf[memory_blocks_alloced_num]);
+            DL_APPEND(blocks, &blocks_buf[memory_blocks_alloced_num]);
             ++memory_blocks_alloced_num;
         }
 
@@ -86,7 +86,7 @@ noreturn void kernel_init_part0(const struct E820_Entry *const e820_entrys, cons
         }
         blocks_buf[memory_blocks_alloced_num].addr = (uintptr_t)_ekernel_align2m;
         blocks_buf[memory_blocks_alloced_num].size = UINTPTR_MAX - (uintptr_t)_ekernel_align2m + 1;
-        CDL_APPEND(blocks, &blocks_buf[memory_blocks_alloced_num]);
+        DL_APPEND(blocks, &blocks_buf[memory_blocks_alloced_num]);
         ++memory_blocks_alloced_num;
     }
     else {
@@ -113,7 +113,7 @@ noreturn void kernel_init_part0(const struct E820_Entry *const e820_entrys, cons
                     }
                     blocks_buf[memory_blocks_alloced_num].addr = addr;
                     blocks_buf[memory_blocks_alloced_num].size = (uintptr_t)__virtual_null - addr;
-                    CDL_APPEND(blocks, &blocks_buf[memory_blocks_alloced_num]);
+                    DL_APPEND(blocks, &blocks_buf[memory_blocks_alloced_num]);
                     ++memory_blocks_alloced_num;
                 }
 
@@ -124,7 +124,7 @@ noreturn void kernel_init_part0(const struct E820_Entry *const e820_entrys, cons
                     }
                     blocks_buf[memory_blocks_alloced_num].addr = (uintptr_t)_ekernel_align2m;
                     blocks_buf[memory_blocks_alloced_num].size = size - ((uintptr_t)_ekernel_align2m - addr);
-                    CDL_APPEND(blocks, &blocks_buf[memory_blocks_alloced_num]);
+                    DL_APPEND(blocks, &blocks_buf[memory_blocks_alloced_num]);
                     ++memory_blocks_alloced_num;
                 }
             }
@@ -135,7 +135,7 @@ noreturn void kernel_init_part0(const struct E820_Entry *const e820_entrys, cons
                 }
                 blocks_buf[memory_blocks_alloced_num].addr = addr;
                 blocks_buf[memory_blocks_alloced_num].size = size;
-                CDL_APPEND(blocks, &blocks_buf[memory_blocks_alloced_num]);
+                DL_APPEND(blocks, &blocks_buf[memory_blocks_alloced_num]);
                 ++memory_blocks_alloced_num;
             }
         }
@@ -149,7 +149,7 @@ noreturn void kernel_init_part0(const struct E820_Entry *const e820_entrys, cons
     }
     struct PT_Page *const first_pt_page = (struct PT_Page *)blocks->addr;
     if (blocks->size == 0x200000)
-        CDL_DELETE(blocks, blocks);
+        DL_DELETE(blocks, blocks);
     else {
         blocks->addr += 0x200000;
         blocks->size -= 0x200000;
@@ -163,7 +163,7 @@ noreturn void kernel_init_part0(const struct E820_Entry *const e820_entrys, cons
     }
     void *const stack_page = (void *)blocks->addr;
     if (blocks->size == 0x200000)
-        CDL_DELETE(blocks, blocks);
+        DL_DELETE(blocks, blocks);
     else {
         blocks->addr += 0x200000;
         blocks->size -= 0x200000;

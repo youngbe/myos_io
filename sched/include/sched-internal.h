@@ -14,6 +14,9 @@
 struct Proc
 {
     atomic_size_t threads_num;
+    // 对于每个进程，他们的页表都不相同
+    // if (proc1 != proc2)
+    //      assert(proc1->pt1 != proc2->pt1)
     uint64_t *pt1; // cr3
     void **vpt1;
     struct Thread *proc_threads;
@@ -23,21 +26,27 @@ struct Thread
 {
     alignas(16) struct Thread* next;
     struct Thread *prev;
+    // 线程切换协议：
+    // 在cli的情况下，先设置rsp，然后jmp return_hook
+    // 沉睡的线程rsp以下128字节的区域可以被临时使用
     void *rsp;
     void *return_hook;
-    // 此处cr3只用于线程切换所以我们把他设置为const
-    // 如果需要修改页表，请找proc->pt1
+    // 对于内核线程，此值为NULL
+    // 对于普通线程，此值为proc->pt1的复制值
     const uint64_t *cr3;
-    bool is_killed;
+    // 对于内核线程，此值不断变化，有 (proc & 1) == 1 ，(proc & -2) 当前指向虚拟进程
+    // 对于普通线程，此值指向所属进程
     struct Proc *proc;
+    bool is_killed;
     int __errno;
     mi_heap_t* _mi_heap_default;
+    uint64_t temp0;
     uint8_t stack[0x200000 - 72];
 };
 // make sure can use malloc
 static_assert(alignof(struct Thread) == 16);
-static_assert(offsetof(struct Thread, is_killed) == 40);
 static_assert(sizeof(struct Thread) == 0x200000);
+static_assert(offsetof(struct Thread, stack) + sizeof(((struct Thread *)(uintptr_t)0)->stack) == sizeof(struct Thread));
 
 // percpu data, use kernel_gs_base to find it
 struct Core_Data
@@ -83,6 +92,8 @@ struct Core_Data
 static_assert(sizeof(struct Core_Data) == 0x10000);
 // make sure use aligned_alloc(32)
 static_assert(alignof(struct Core_Data) == 32);
+static_assert(offsetof(struct Core_Data, stack) + sizeof(((struct Core_Data *)(uintptr_t)0)->stack) == sizeof(struct Core_Data));
+
 
 struct Spin_Mutex_Member;
 typedef struct Spin_Mutex_Member *spin_mtx_t;
@@ -96,5 +107,7 @@ extern volatile _Atomic(ssize_t) schedulable_threads_num;
 extern volatile _Atomic(ssize_t) old_schedulable_threads_num;
 extern volatile atomic_size_t idle_cores_num;
 
-static struct Proc main_proc;
 extern struct Thread main_thread;
+
+void __attribute__((noinline)) set_thread_schedulable(struct Thread *new_thread, uint32_t is_sti, struct Spin_Mutex_Member *p_spin_mutex_member);
+void __attribute__((noinline)) set_threads_schedulable(struct Thread *new_threads, size_t num, uint32_t is_sti, struct Spin_Mutex_Member *p_spin_mutex_member);

@@ -63,12 +63,12 @@ int __attribute__((noinline)) mtx_unlock(mtx_t*const mtx)
     mtx_owner = mtx->blocked_threads;
     atomic_store_explicit(&mtx->owner, mtx_owner, memory_order_relaxed);
     if (mtx_owner != NULL)
-        CDL_DELETE(mtx->blocked_threads, mtx->blocked_threads);
+        DL_DELETE(mtx->blocked_threads, mtx->blocked_threads);
     /*
     if (mtx_owner == NULL)
         atomic_store_explicit(&mtx->owner, NULL, memory_order_relaxed);
     else
-        CDL_DELETE(mtx->blocked_threads, mtx->blocked_threads);
+        DL_DELETE(mtx->blocked_threads, mtx->blocked_threads);
         */
     sti_spin_unlock(&mtx->spin_mtx, sti);
     if (mtx_owner) {

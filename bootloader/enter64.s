@@ -50,7 +50,9 @@ enter64:
     wrmsr
 
     # System V ABI 初始化寄存器状态 for init process
-    ldmxcsr     .Lmxcsr_standard
+    #opcode: ldmxcsr     .Lmxcsr_standard
+    .long 0x2514ae0f
+    .long .Lmxcsr_standard
     vzeroall
     fninit
 
@@ -64,5 +66,6 @@ enter64:
 .Lnot_support_syscall:
     jmp .
 
+    .p2align 2
 .Lmxcsr_standard:
     .long 0b111111 << 7

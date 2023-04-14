@@ -76,7 +76,7 @@ int __attribute__((noinline)) mtx_lock(mtx_t*const mtx)
             return thrd_success;
         }
     }
-    CDL_APPEND(mtx->blocked_threads, current_thread);
+    DL_APPEND(mtx->blocked_threads, current_thread);
 
     {
         uint64_t unlocked = 0;
@@ -102,7 +102,7 @@ int __attribute__((noinline)) mtx_lock(mtx_t*const mtx)
                 :);
     } else {
         struct Thread *const new_thread = fake_schedulable_threads;
-        CDL_DELETE2(fake_schedulable_threads, new_thread, schedulable_threads_prev, schedulable_threads_next);
+        DL_DELETE2(fake_schedulable_threads, new_thread, schedulable_threads_prev, schedulable_threads_next);
         schedulable_threads = fake_schedulable_threads;
         atomic_store_explicit(&schedulable_threads_lock, 0, memory_order_relaxed);
         {
