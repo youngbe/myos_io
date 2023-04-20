@@ -13,32 +13,7 @@ size_t __stdio_write(FILE *f, const unsigned char *buf, size_t len)
 	int iovcnt = 2;
 	ssize_t cnt;
 	for (;;) {
-		cnt = ({
-                ssize_t ret = 0;
-                for (size_t i = 0; i < iovcnt; ++i) {
-                    if (iov[i].iov_len == 0)
-                        continue;
-                    ssize_t write_ret;
-                    if (SSIZE_MAX - ret <= iov[i].iov_len) {
-                        write_ret = write(f->fd, iov[i].iov_base, SSIZE_MAX - ret);
-                        if (write_ret < 0)
-                            ret = write_ret;
-                        else
-                            ret += write_ret;
-                        break;
-                    }
-                    write_ret = write(f->fd, iov[i].iov_base, iov[i].iov_len);
-                    if (write_ret < 0) {
-                        ret = write_ret;
-                        break;
-                    }
-                    else
-                        ret += write_ret;
-                    if (write_size != iov[i].iov_len)
-                        break;
-                }
-                ret;
-                });// syscall(SYS_writev, f->fd, iov, iovcnt);
+        cnt = writev(f->fd, iov, iovcnt);
 		if (cnt == rem) {
 			f->wend = f->buf + f->buf_size;
 			f->wpos = f->wbase = f->buf;

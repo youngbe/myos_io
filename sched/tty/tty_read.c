@@ -1,12 +1,15 @@
 #include "tty-internal.h"
 
+#include <fd.h>
+
 #include <stdlib.h>
 #include <string.h>
 
-size_t tty_read(struct TTY *const tty, void *const buf, size_t size)
+ssize_t tty_read(const struct FD *const fd, void *const buf, size_t size)
 {
     if (size == 0)
         return 0;
+    struct TTY *const tty = fd->data;
     if (mtx_lock(&tty->read_mtx) != thrd_success)
         abort();
     while (tty->read_buf_visible == 0) {

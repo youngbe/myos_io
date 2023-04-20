@@ -46,7 +46,7 @@ struct _IO_FILE {
 	mtx_t mutex;
 	int lbf;
 	void *cookie;
-    struct FD fd;
+    struct FD *fd;
 };
 
 

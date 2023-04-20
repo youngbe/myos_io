@@ -4,11 +4,14 @@
 #include "io.h"
 #include "tty.h"
 
+#include <fd.h>
+
 #include <threads.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #define CHAR_ATTR 0b00001111
 #define ROWS 25
@@ -18,7 +21,6 @@
 #define VIDMEM ((char *)0xb8000)
 
 static size_t x, y;
-static mtx_t mutex;
 
 static void scroll(void)
 {
@@ -57,17 +59,59 @@ static inline void __putcharx(const char c)
     }
 }
 
-void earlytty_write(const void *const buf, const size_t size)
+ssize_t tty_write(const struct FD *const, const void *const buf, size_t size)
 {
-    if (mtx_lock(&mutex) != thrd_success)
+    if (size == 0)
+        return 0;
+    if (size > SSIZE_MAX)
+        size = SSIZE_MAX;
+
+    if (mtx_lock(&mtx) != thrd_success)
         abort();
 
     for (size_t i = 0; i < size; ++i)
         __putcharx(((char *)buf)[i]);
     update_cursor();
 
-    if (mtx_unlock(&mutex) != thrd_success)
+    if (mtx_unlock(&mtx) != thrd_success)
         abort();
+
+    return size;
+}
+
+ssize_t tty_writev(const struct FD *, const struct iovec *iov, int iovcnt)
+{
+    if (iovcnt < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    while (true) {
+        if (iovcnt == 0)
+            return 0;
+        if (iov->iov_len != 0)
+            break;
+        --iovcnt;
+        ++iov;
+    }
+    ssize_t ret = 0;
+    if (mtx_lock(&mtx) != thrd_success)
+        abort();
+    for (size_t i = 0; i < iovcnt; ++i) {
+        size_t size;
+        if (iov[i].iov_len > SSIZE_MAX - ret)
+            size = SSIZE_MAX - ret;
+        else
+            size = iov[i].iov_len;
+        ret += size;
+        for (size_t i2 = 0; i2 < size; ++i2)
+            __putcharx(((char *)iov[i].iov_base)[i2]);
+        if (ret == SSIZE_MAX)
+            break;
+    }
+    update_cursor();
+    if (mtx_unlock(&mtx) != thrd_success)
+        abort();
+    return ret;
 }
 
 

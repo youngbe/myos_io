@@ -85,7 +85,7 @@ label_in:
         // 保证 input_buf '\0' 已写入，sleeping_thread已写入
         last_used = atomic_fetch_sub_explicit(&tty->input_buf_used, 1, memory_order_release);
         // handle c
-        tty->write(&c, 1);
+        tty->write(NULL, &c, 1);
         if (mtx_lock(&tty->read_mtx) != thrd_success)
             abort();
         if (tty->read_buf_used == TTY_READ_BUF_SIZE)

@@ -40,5 +40,5 @@ struct TTY
     mtx_t read_mtx;
     cnd_t read_cnd;
 
-    void (*write)(const void *, size_t);
+    ssize_t (*tty_write)(const struct FD *fd, const void *, size_t);
 };
