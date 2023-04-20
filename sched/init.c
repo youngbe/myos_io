@@ -69,6 +69,11 @@ void kernel_init_part1(void)
         idts[32] = IDT_DESCRIPTOR((uintptr_t)&empty_isr, 8);
     }
     {
+        // 键盘中断
+        extern void keyboard_isr(void);
+        idts[33] = IDT_DESCRIPTOR((uintptr_t)&keyboard_isr, 8);
+    }
+    {
         // kernel_abort中断
         extern void abort_handler(void);
         idts[34] = IDT_DESCRIPTOR((uintptr_t)&abort_handler, 8);

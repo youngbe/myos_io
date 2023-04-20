@@ -10,10 +10,12 @@ static size_t __tty_write(FILE *const f, const unsigned char *const buf, const s
 {
     const size_t len_f = f->wpos - f->wbase;
     if (len_f != 0)
-        earlytty_write(f->wbase, len_f);
+        write(f->fd, f->wbase, len_f);
+        //earlytty_write(f->wbase, len_f);
     f->wend = f->buf + f->buf_size;
     f->wpos = f->wbase = f->buf;
-    earlytty_write(buf, size);
+    write(f->fd, buf, size);
+    //earlytty_write(buf, size);
     return size;
 }
 

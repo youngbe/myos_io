@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CC=clang-16
+CC=clang-15
 
 #LTO_FLAGS=(-flto -fwhole-program -flto-partition=none -flto-compression-level=0 -fuse-linker-plugin -fno-fat-lto-objects)
 LTO_FLAGS=(-flto=full -fno-split-lto-unit -fwhole-program-vtables -Wl,--lto-partitions=1 -Wl,--lto-whole-program-visibility -Wl,--no-lto-legacy-pass-manager)
@@ -116,7 +116,7 @@ kernel_size=$(stat -c '%s' kernel.bin)
 "$CC" "${BASE_CPPFLAGS[@]}" "${BOOTLOADER_CPPFLAGS[@]}" -DKERNEL_SIZE=${kernel_size} \
     "${BASE_CFLAGS[@]}" "${BOOTLOADER_CFLAGS[@]}" "${LTO_FLAGS[@]}" \
     "${BASE_CCLDFLAGS[@]}" "${BOOTLOADER_CCLDFLAGS[@]}" \
-    bootloader/code16.s bootloader/main.c bootloader/tty.c bootloader/printb.c bootloader/string.c bootloader/e820.c bootloader/qsort.c bootloader/load_kernel.c bootloader/page_table.c bootloader/enter64.s bootloader/disable_8259a.c \
+    bootloader/code16.s bootloader/main.c bootloader/tty.c bootloader/printb.c bootloader/string.c bootloader/e820.c bootloader/qsort.c bootloader/load_kernel.c bootloader/page_table.c bootloader/enter64.s bootloader/disable_8259a.c bootloader/acpi/*.c \
     bootloader/ffreestanding32.s \
     -T bootloader/bootloader.ld -o bootloader.elf
 
