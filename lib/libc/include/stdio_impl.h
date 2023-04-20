@@ -12,6 +12,7 @@ extern FILE __stderr_FILE;
 #define stdout (&__stdout_FILE)
 #define stderr (&__stderr_FILE)
 
+#include <fd.h>
 #include <stdbool.h>
 #include <threads.h>
 
@@ -45,7 +46,7 @@ struct _IO_FILE {
 	mtx_t mutex;
 	int lbf;
 	void *cookie;
-    void *fd;
+    struct FD fd;
 };
 
 

@@ -4,7 +4,7 @@
 
 #include <stdlib.h>
 
-ssize_t write(struct FD *const fd, const void *const buf, const size_t size)
+ssize_t writev(struct FD *const fd, const void *const buf, const size_t size)
 {
     if (fd->type == TTY)
         return ((struct TTY *)fd->f)->write(buf, size);
