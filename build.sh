@@ -48,7 +48,7 @@ for src_file in "${src_files[@]}"
 do
     out_file="out/${src_file}.o"
     mkdir -p $(dirname ${out_file})
-    hang_run "$CC" -I lib/libc/include "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" \
+    hang_run "$CC" -I lib/libc/internal "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" \
         "${BASE_CFLAGS[@]}" "${KERNEL_CFLAGS[@]}" -ffp-contract=on -fno-fast-math -frounding-math -w \
         "$src_file" -c -o "$out_file"
     out_files+=($out_file)
@@ -57,12 +57,12 @@ out_files+=(lib/libc/math/*.s)
 
 # libc: string stdio stdlib wchar errno ctypes
 out_files+=(lib/libc/string/*.s)
-src_files=(lib/libc/string/*.c lib/libc/stdio/*.c lib/libc/stdlib/*.c lib/libc/wchar/*.c lib/libc/errno/*.c lib/libc/ctype/*.c)
+src_files=(lib/libc/string/*.c lib/libc/stdio/*.c lib/libc/stdlib/*.c lib/libc/wchar/*.c lib/libc/errno/*.c lib/libc/ctype/*.c lib/libc/internal/*.c)
 for src_file in "${src_files[@]}"
 do
     out_file="out/${src_file}.o"
     mkdir -p $(dirname ${out_file})
-    hang_run "$CC" -I lib/libc/include "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" -D_GNU_SOURCE \
+    hang_run "$CC" -I lib/libc/internal "${BASE_CPPFLAGS[@]}" "${KERNEL_CPPFLAGS[@]}" -D_GNU_SOURCE \
         "${BASE_CFLAGS[@]}" "${KERNEL_CFLAGS[@]}" -w \
         "$src_file" -c -o "$out_file"
     out_files+=($out_file)
@@ -77,7 +77,8 @@ out_files+=(out/lib/libc/stdlib/mimalloc/src/static.o)
 
 # sched模块
 out_files+=(sched/mutex/mtx_lock_c.s sched/cond/empty_switch.s sched/cond/cnd_wait_c.s sched/timer_isr/timer_isr.s
-sched/empty_loop.s sched/spurious_isr.s sched/empty_isr.s sched/thread_start.s sched/abort_handler.s sched/new_thread_isr.s)
+sched/empty_loop.s sched/spurious_isr.s sched/empty_isr.s sched/thread_start.s sched/abort_handler.s sched/new_thread_isr.s
+sched/tty/keyboard_thread.s)
 src_files=(sched/static.c)
 for src_file in "${src_files[@]}"
 do

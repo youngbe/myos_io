@@ -1,17 +1,14 @@
 #include "tty-internal.h"
 #include "sched-internal.h"
 
+#include "thrd_current.h"
+
 #include <sched.h>
 
 #include <stdbool.h>
 #include <stdlib.h>
 
-#define KEYBOARD_BUF_SIZE 0x200000
-
-static volatile atomic_char keyboard_buf[KEYBOARD_BUF_SIZE] = {0};
-static volatile atomic_size_t keyboard_buf_ii = 0;
-// keyboard_buf_oi 在 keyboard 线程的局部变量
-static volatile _Atomic(struct Thread *) keyboard_thread = NULL;
+#define KEYBOARD_THREAD_BUF_SIZE 65536
 
 int keyboard_thread(void *)
 {
@@ -28,7 +25,7 @@ int keyboard_thread(void *)
 
     struct Thread *const current_thread = thrd_currentx();
     size_t last_used;
-    uint16_t keyboard_buf_oi = 0;
+    size_t keyboard_buf_oi = 0;
 
     goto label_in;
     while (true) {
@@ -52,7 +49,7 @@ label_in:
                     :
                     :);
             struct Thread *expected_thread = NULL;
-            if (atomic_compare_exchange_strong_explicit(&keyboard_thread, &expected_thread, current_thread, memory_order_release, memory_order_relaxed)) {
+            if (atomic_compare_exchange_strong_explicit(&keyboard_sleeping_thread, &expected_thread, current_thread, memory_order_release, memory_order_relaxed)) {
                 // 不能再使用栈
                 struct Proc *temp_current_proc = (struct Proc *)((uintptr_t)current_thread->proc & -2);
                 __asm__ volatile (
@@ -77,37 +74,68 @@ label_in:
                         :
                         :);
             }
-            //assert(keyboard_thread != NULL);
-            atomic_store_explicit(&keyboard_thread, NULL, memory_order_relaxed);
+            //assert(keyboard_sleeping_thread != NULL);
+            atomic_store_explicit(&keyboard_sleeping_thread, NULL, memory_order_relaxed);
         }
-        //assert(used >= 1);
-        char c;
+        //assert(keyboard_buf_used >= 1);
+        char c[KEYBOARD_THREAD_BUF_SIZE];
+        size_t c_num = 1;
 
-        while ((c = atomic_load_explicit(&keyboard_buf[keyboard_buf_oi], memory_order_relaxed)) == '\0')
+        while ((c[0] = atomic_load_explicit(&keyboard_buf[keyboard_buf_oi], memory_order_relaxed)) == '\0')
             __asm__ volatile ("pause":::);
         atomic_store_explicit(&keyboard_buf[keyboard_buf_oi++], '\0', memory_order_relaxed);
-        keyboard_buf_oi &= KEYBOARD_BUF_SIZE - 1;
-        // 使用memory_order_release
+        // 使用 memory_order_release
         // 保证 keyboard_buf '\0' 已写入，sleeping_thread已写入
         last_used = atomic_fetch_sub_explicit(&keyboard_buf_used, 1, memory_order_release);
+        keyboard_buf_oi &= KEYBOARD_BUF_SIZE - 1;
+        while (last_used != 1) {
+            const char temp_c = atomic_load_explicit(&keyboard_buf[keyboard_buf_oi], memory_order_relaxed);
+            if (temp_c == '\0')
+                break;
+            atomic_store_explicit(&keyboard_buf[keyboard_buf_oi++], '\0', memory_order_relaxed);
+            // 使用 memory_order_release
+            // 保证 keyboard_buf '\0' 已写入，sleeping_thread已写入
+            last_used = atomic_fetch_sub_explicit(&keyboard_buf_used, 1, memory_order_release);
+            keyboard_buf_oi &= KEYBOARD_BUF_SIZE - 1;
+            c[c_num++] = temp_c;
+            if (c_num == KEYBOARD_THREAD_BUF_SIZE)
+                break;
+        }
         // handle c
         struct TTY *const tty = current_tty;
-        tty->write(NULL, &c, 1);
         if (mtx_lock(&tty->read_mtx) != thrd_success)
             abort();
-        if (tty->read_buf_used == TTY_READ_BUF_SIZE)
-            goto label_continue;
-        tty->read_buf[tty->read_buf_ii] = c;
-        tty->read_buf_ii = (tty->read_buf_ii + 1) % TTY_READ_BUF_SIZE;
-        if (++tty->read_buf_used >= TTY_READ_BUF_VISIBLE_THRESHOLD || c == '\n') {
-            if (tty->read_buf_visible == 0)
-                if (cnd_broadcast(&tty->read_cnd) != thrd_success)
-                    abort();
-            tty->read_buf_visible = tty->read_buf_used;
+
+        const size_t read_buf_used = tty->read_buf_used;
+        const size_t save_num = c_num > TTY_READ_BUF_SIZE - read_buf_used ? TTY_READ_BUF_SIZE - read_buf_used : c_num;
+        if (save_num != 0) {
+            size_t new_visible = 0;
+            if (read_buf_used + save_num >= TTY_READ_BUF_VISIBLE_THRESHOLD)
+                new_visible = read_buf_used + save_num;
+            size_t read_buf_ii = tty->read_buf_ii;
+            for (size_t i = 0; i < save_num; ++i) {
+                tty->read_buf[read_buf_ii++] = c[i];
+                read_buf_ii %= TTY_READ_BUF_SIZE;
+                if (c[i] == '\n') {
+                    if (read_buf_used + i > new_visible)
+                        new_visible = read_buf_used + i;
+                }
+            }
+            tty->read_buf_ii = read_buf_ii; 
+            if (new_visible > 0) {
+                if (tty->read_buf_visible == 0)
+                    if (cnd_broadcast(&tty->read_cnd) != thrd_success)
+                        abort();
+                tty->read_buf_visible = new_visible;
+            }
+            tty->read_buf_used = read_buf_used + save_num;
         }
-label_continue:
+
         if (mtx_unlock(&tty->read_mtx) != thrd_success)
             abort();
+
+        if (save_num != 0)
+            tty->tty_write(NULL, c, save_num);
     }
     return 0;
 }

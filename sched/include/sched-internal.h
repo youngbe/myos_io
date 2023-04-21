@@ -118,7 +118,7 @@ void __attribute__((noinline)) set_threads_schedulable(struct Thread *new_thread
 #include "mcs_spin.h"
 #include <io.h>
 #include <utlist.h>
-static __attribute__((no_inline, no_caller_saved_registers)) void set_thread_schedulable_interrupt(struct Thread *const new_thread, struct Spin_Mutex_Member *const p_spin_mutex_member)
+static __attribute__((noinline, no_caller_saved_registers)) void set_thread_schedulable_interrupt(struct Thread *const new_thread, struct Spin_Mutex_Member *const p_spin_mutex_member)
 {
     if (new_thread == NULL)
         __builtin_unreachable();

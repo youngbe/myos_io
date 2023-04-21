@@ -31,7 +31,7 @@ struct FD kernel_stdin_fd =
     .readv = tty_readv,
     .lseek = NULL,
     .close = NULL,
-    .data = default_tty
+    .data = &default_tty
 };
 
 ssize_t read(const struct FD *const fd, void *const buf, const size_t size)

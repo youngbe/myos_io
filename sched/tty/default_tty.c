@@ -8,4 +8,4 @@ static struct TTY default_tty = {
     .tty_write = tty_write,
 };
 
-static struct TTY *current_tty = &default_tty;
+struct TTY *current_tty = &default_tty;

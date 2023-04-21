@@ -25,14 +25,6 @@
 // 流向tty的字符将显示在屏幕上
 // ungetc()函数功能由C库提供，tty不提供这种功能
 
-static volatile atomic_char keyboard_buf[KEYBOARD_BUF_SIZE];
-static volatile atomic_size_t keyboard_buf_ii;
-// keyboard_buf_oi 在 keyboard 线程的局部变量
-static volatile _Atomic(struct Thread *) keyboard_thread;
-
-// 决定键盘中断输入到哪个tty
-static struct TTY *current_tty;
-
 struct TTY
 {
     char read_buf[TTY_READ_BUF_SIZE];
@@ -56,3 +48,12 @@ struct FD
     int (*close)(const struct FD *fd);
     void *data;
 };
+
+extern volatile atomic_char keyboard_buf[KEYBOARD_BUF_SIZE];
+extern volatile atomic_size_t keyboard_buf_used;
+extern volatile _Atomic(struct Thread *) keyboard_sleeping_thread;
+
+// 决定键盘中断输入到哪个tty
+extern struct TTY *current_tty;
+
+static struct TTY default_tty;
