@@ -6,7 +6,14 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-int tty_thread(void *const in_tty)
+#define KEYBOARD_BUF_SIZE 0x200000
+
+static volatile atomic_char keyboard_buf[KEYBOARD_BUF_SIZE] = {0};
+static volatile atomic_size_t keyboard_buf_ii = 0;
+// keyboard_buf_oi 在 keyboard 线程的局部变量
+static volatile _Atomic(struct Thread *) keyboard_thread = NULL;
+
+int keyboard_thread(void *)
 {
     /*
     __asm__ volatile (
@@ -19,10 +26,9 @@ int tty_thread(void *const in_tty)
             );
             */
 
-    struct TTY *const tty = in_tty;
     struct Thread *const current_thread = thrd_currentx();
     size_t last_used;
-    uint16_t input_buf_oi = 0;
+    uint16_t keyboard_buf_oi = 0;
 
     goto label_in;
     while (true) {
@@ -46,9 +52,8 @@ label_in:
                     :
                     :);
             struct Thread *expected_thread = NULL;
-            if (atomic_compare_exchange_strong_explicit(&tty->sleeping_thread, &expected_thread, current_thread, memory_order_release, memory_order_relaxed)) {
+            if (atomic_compare_exchange_strong_explicit(&keyboard_thread, &expected_thread, current_thread, memory_order_release, memory_order_relaxed)) {
                 // 不能再使用栈
-                //struct Proc *temp_current_proc = current_proc;
                 struct Proc *temp_current_proc = (struct Proc *)((uintptr_t)current_thread->proc & -2);
                 __asm__ volatile (
                         "rdgsbase   %%rsp\n\t"
@@ -64,7 +69,6 @@ label_in:
                         "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15", "ymm16", "ymm17", "ymm18", "ymm19", "ymm20", "ymm21", "ymm22", "ymm23", "ymm24", "ymm25", "ymm26", "ymm27", "ymm28", "ymm29", "ymm30", "ymm31",
                         "zmm0", "zmm1", "zmm2", "zmm3", "zmm4", "zmm5", "zmm6", "zmm7", "zmm8", "zmm9", "zmm10", "zmm11", "zmm12", "zmm13", "zmm14", "zmm15", "zmm16", "zmm17", "zmm18", "zmm19", "zmm20", "zmm21", "zmm22", "zmm23", "zmm24", "zmm25", "zmm26", "zmm27", "zmm28", "zmm29", "zmm30", "zmm31"
                         );
-                //assert(sleeping_thread != NULL);
             } else {
                 __asm__ volatile (
                         "sti\n\t"
@@ -73,18 +77,21 @@ label_in:
                         :
                         :);
             }
-            atomic_store_explicit(&tty->sleeping_thread, NULL, memory_order_relaxed);
+            //assert(keyboard_thread != NULL);
+            atomic_store_explicit(&keyboard_thread, NULL, memory_order_relaxed);
         }
         //assert(used >= 1);
         char c;
 
-        while ((c = atomic_load_explicit(&tty->input_buf[input_buf_oi], memory_order_relaxed)) == '\0')
+        while ((c = atomic_load_explicit(&keyboard_buf[keyboard_buf_oi], memory_order_relaxed)) == '\0')
             __asm__ volatile ("pause":::);
-        atomic_store_explicit(&tty->input_buf[input_buf_oi++], '\0', memory_order_relaxed);
+        atomic_store_explicit(&keyboard_buf[keyboard_buf_oi++], '\0', memory_order_relaxed);
+        keyboard_buf_oi &= KEYBOARD_BUF_SIZE - 1;
         // 使用memory_order_release
-        // 保证 input_buf '\0' 已写入，sleeping_thread已写入
-        last_used = atomic_fetch_sub_explicit(&tty->input_buf_used, 1, memory_order_release);
+        // 保证 keyboard_buf '\0' 已写入，sleeping_thread已写入
+        last_used = atomic_fetch_sub_explicit(&keyboard_buf_used, 1, memory_order_release);
         // handle c
+        struct TTY *const tty = current_tty;
         tty->write(NULL, &c, 1);
         if (mtx_lock(&tty->read_mtx) != thrd_success)
             abort();
@@ -102,4 +109,5 @@ label_continue:
         if (mtx_unlock(&tty->read_mtx) != thrd_success)
             abort();
     }
+    return 0;
 }

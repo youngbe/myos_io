@@ -1,15 +1,5 @@
 #include <fd.h>
 
-struct FD
-{
-    ssize_t (*read)(const struct FD *fd, void *buf, size_t size);
-    ssize_t (*write)(const struct FD *fd, const void *buf, size_t size);
-    ssize_t (*readv)(const struct FD *fd, const struct iovec *iov, int iovcnt);
-    ssize_t (*writev)(const struct FD *fd, const struct iovec *iov, int iovcnt);
-    off_t (*lseek)(const struct FD *fd, off_t offset, int whence);
-    int (*close)(const struct FD *fd);
-    void *data;
-};
 
 struct FD kernel_stdout_fd =
 {

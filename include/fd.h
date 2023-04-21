@@ -17,3 +17,7 @@ ssize_t readv(const struct FD *fd, const struct iovec *iov, int iovcnt);
 ssize_t writev(const struct FD *fd, const struct iovec *iov, int iovcnt);
 off_t lseek(const struct FD *fd, off_t offset, int whence);
 int close(struct FD *fd);
+
+extern struct FD kernel_stdin_fd;
+extern struct FD kernel_stdout_fd;
+extern struct FD kernel_stderr_fd;

@@ -21,6 +21,7 @@
 #define VIDMEM ((char *)0xb8000)
 
 static size_t x, y;
+static mtx_t mtx;
 
 static void scroll(void)
 {
@@ -59,7 +60,7 @@ static inline void __putcharx(const char c)
     }
 }
 
-ssize_t tty_write(const struct FD *const, const void *const buf, size_t size)
+ssize_t tty_write(const struct FD *, const void *const buf, size_t size)
 {
     if (size == 0)
         return 0;
@@ -141,6 +142,6 @@ void kernel_init_part0(void)
     x = (pos >> 1) % 80;
     y = (pos >> 1) / 80;
 
-    if (mtx_init(&mutex, mtx_plain) != thrd_success)
+    if (mtx_init(&mtx, mtx_plain) != thrd_success)
         abort();
 }

@@ -17,5 +17,8 @@ noreturn void bootloader_main()
     printb("loading kernel at: %p\n", kernel_load_pos);
     load_kernel(kernel_load_pos);
 
+    if (map_keyboard_interrupt_to_vector(0, 33) != 0)
+        bootloader_error("failed to map keyboard interrupt!");
+
     enter64(kernel_load_pos, (uintptr_t)e820_entrys, e820_entrys_num, (uintptr_t)_ebootloader_align4k);
 }

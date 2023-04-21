@@ -20,7 +20,9 @@ struct Proc
     uint64_t *pt1; // cr3
     void **vpt1;
     struct Thread *proc_threads;
-    struct TTY *tty;
+    struct FD *stdin_fp;
+    struct FD *stdout_fp;
+    struct FD *stderr_fp;
 };
 
 struct Thread
