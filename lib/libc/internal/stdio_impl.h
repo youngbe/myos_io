@@ -38,15 +38,18 @@ struct _IO_FILE {
 	unsigned char *rpos, *rend;
 	unsigned char *wend, *wpos;
 	unsigned char *wbase;
+	size_t (*read)(FILE *, unsigned char *, size_t);
 	size_t (*write)(FILE *, const unsigned char *, size_t);
 	unsigned char *buf;
 	size_t buf_size;
+    struct FD *fd;
 	int mode;
     bool need_lock;
 	mtx_t mutex;
 	int lbf;
 	void *cookie;
-    struct FD *fd;
+	unsigned char *shend;
+	off_t shlim, shcnt;
 };
 
 extern FILE *volatile __stdin_used;

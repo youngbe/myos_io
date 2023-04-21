@@ -18,7 +18,7 @@ void keyboard_isr(void *)
         if (!atomic_compare_exchange_strong_explicit(&keyboard_thread, &temp_keyboard_thread, (void *)1, memory_order_relaxed, memory_order_relaxed)) {
             struct Spin_Mutex_Member spin_mutex_member;
             spin_mutex_member_init(&spin_mutex_member);
-            set_thread_schedulable_inline(temp_keyboard_thread, false, &spin_mutex_member);
+            set_thread_schedulable_interrupt(temp_keyboard_thread, &spin_mutex_member);
         }
     }
     // 需要保证 keyboard_buf_used 已经写入

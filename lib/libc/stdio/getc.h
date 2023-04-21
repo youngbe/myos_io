@@ -6,4 +6,5 @@ static inline int do_getc(FILE *f)
     FLOCK(f);
 	ret = getc_unlocked(f);
 	FUNLOCK(f);
+    return ret;
 }
