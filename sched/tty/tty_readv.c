@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
 
 ssize_t tty_readv(const struct FD *fd, const struct iovec *iov, int iovcnt)
 {
@@ -31,12 +32,13 @@ ssize_t tty_readv(const struct FD *fd, const struct iovec *iov, int iovcnt)
 
     do
     {
-        size = iov->iov_len;
-        buf = iov->iov_base;
+        size_t size = iov->iov_len;
+        void *const buf = iov->iov_base;
         if (size > tty->read_buf_visible)
             size = tty->read_buf_visible;
-        if (size > SSIZE_MAX - ret)
-            size = SSIZE_MAX - ret;
+        assert(size <= (size_t)(SSIZE_MAX - ret));
+        //if (size > (size_t)(SSIZE_MAX - ret))
+        //    size = SSIZE_MAX - ret;
         ret += size;
         tty->read_buf_visible -= size;
         tty->read_buf_used -= size;
@@ -51,7 +53,7 @@ ssize_t tty_readv(const struct FD *fd, const struct iovec *iov, int iovcnt)
             memcpy(buf, &tty->read_buf[tty->read_buf_oi], temp_size);
             memcpy((uint8_t *)buf + temp_size, tty->read_buf, tty->read_buf_oi = size - temp_size);
         }
-        if (tty->read_buf_visible == 0 || ret == SSIZE_MAX)
+        if (tty->read_buf_visible == 0)
             break;
         ++iov;
     } while (--iovcnt > 0);

@@ -70,7 +70,7 @@ void kernel_init_part1(void)
     }
     {
         // 键盘中断
-        extern void keyboard_isr(void);
+        extern void keyboard_isr(void *);
         idts[33] = IDT_DESCRIPTOR((uintptr_t)&keyboard_isr, 8);
     }
     {

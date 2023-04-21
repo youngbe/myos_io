@@ -3,7 +3,9 @@
 
 #include "thrd_current.h"
 
+
 #include <sched.h>
+#include <io.h>
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -31,23 +33,27 @@ int keyboard_thread(void *)
     while (true) {
         if (last_used == 1) {
 label_in:
+            ;
             // need sleep
+            void *temp;
+            __asm__ volatile (
+                    "leaq   .Lwake_up(%%rip), %0"
+                    :"=r"(temp), "+m"(__not_exist_global_sym_for_asm_seq)
+                    :
+                    :);
             __asm__ volatile (
                     "pushfq\n\t"
                     "cli"
-                    :
-                    :
+                    :"+m"(__not_exist_global_sym_for_asm_seq)
+                    :"r"(current_thread)
                     :);
+            atomic_signal_fence(memory_order_acquire);
             __asm__ volatile (
                     "movq   %%rsp, %0"
                     :"+m"(current_thread->rsp)
                     :
                     :);
-            __asm__ volatile (
-                    "leaq   .Lwake_up(%%rip), %0"
-                    :"=r"(current_thread->return_hook)
-                    :
-                    :);
+            current_thread->return_hook = temp;
             struct Thread *expected_thread = NULL;
             if (atomic_compare_exchange_strong_explicit(&keyboard_sleeping_thread, &expected_thread, current_thread, memory_order_release, memory_order_relaxed)) {
                 // 不能再使用栈
@@ -81,8 +87,12 @@ label_in:
         char c[KEYBOARD_THREAD_BUF_SIZE];
         size_t c_num = 1;
 
-        while ((c[0] = atomic_load_explicit(&keyboard_buf[keyboard_buf_oi], memory_order_relaxed)) == '\0')
-            __asm__ volatile ("pause":::);
+        {
+            char temp_c;
+            while ((temp_c = atomic_load_explicit(&keyboard_buf[keyboard_buf_oi], memory_order_relaxed)) == '\0')
+                __asm__ volatile ("pause":::);
+            c[0] = temp_c;
+        }
         atomic_store_explicit(&keyboard_buf[keyboard_buf_oi++], '\0', memory_order_relaxed);
         // 使用 memory_order_release
         // 保证 keyboard_buf '\0' 已写入，sleeping_thread已写入

@@ -18,6 +18,7 @@ ssize_t tty_read(const struct FD *const fd, void *const buf, size_t size)
     }
     if (size > tty->read_buf_visible)
         size = tty->read_buf_visible;
+    assert(size <= SSIZE_MAX);
     tty->read_buf_visible -= size;
     tty->read_buf_used -= size;
     if (tty->read_buf_oi < TTY_READ_BUF_SIZE - size) {

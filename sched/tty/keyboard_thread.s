@@ -1,5 +1,3 @@
-	.text
-	.file	"keyboard_thread_c.c"
 	.section	.text.keyboard_thread,"ax",@progbits
 	.globl	keyboard_thread                 # -- Begin function keyboard_thread
 	.p2align	4, 0x90
@@ -31,6 +29,7 @@ keyboard_thread:                        # @keyboard_thread
 	#NO_APP
 	movq	8(%rsp), %rcx                   # 8-byte Reload
 	#APP
+	movq	%r14, (%rsp)                    # 8-byte Spill
 	pushfq
 	cli
 	#NO_APP
@@ -45,7 +44,6 @@ keyboard_thread:                        # @keyboard_thread
 # %bb.2:                                #   in Loop: Header=BB0_1 Depth=1
 	movq	40(%rcx), %rdi
 	andq	$-2, %rdi
-	movq	%r14, (%rsp)                    # 8-byte Spill
 	#APP
 	rdgsbaseq	%rsp
 	addq	$65520, %rsp                    # imm = 0xFFF0

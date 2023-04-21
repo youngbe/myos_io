@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <limits.h>
 
 #define CHAR_ATTR 0b00001111
 #define ROWS 25
@@ -98,7 +99,7 @@ static ssize_t tty_writev(const struct FD *, const struct iovec *iov, int iovcnt
         abort();
     for (size_t i = 0; i < iovcnt; ++i) {
         size_t size;
-        if (iov[i].iov_len > SSIZE_MAX - ret)
+        if (iov[i].iov_len > (size_t)(SSIZE_MAX - ret))
             size = SSIZE_MAX - ret;
         else
             size = iov[i].iov_len;

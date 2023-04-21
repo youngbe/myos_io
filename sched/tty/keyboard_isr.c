@@ -10,7 +10,7 @@ static volatile atomic_size_t keyboard_buf_ii = 0;
     __attribute__((interrupt))
 void keyboard_isr(void *)
 {
-    const char c = inb(0x60);
+    const char c = inb_interrupt(0x60);
     size_t temp_used = atomic_load_explicit(&keyboard_buf_used, memory_order_relaxed);
     while (true) {
         if (temp_used == KEYBOARD_BUF_SIZE)
@@ -32,5 +32,5 @@ void keyboard_isr(void *)
     const uint16_t temp_i = atomic_fetch_add_explicit(&keyboard_buf_ii, 1, memory_order_relaxed) & (KEYBOARD_BUF_SIZE - 1);
     atomic_store_explicit(&keyboard_buf[temp_i], c, memory_order_relaxed);
     atomic_signal_fence(memory_order_release);
-    wrmsr_volatile_seq(0x80b, 0);
+    wrmsr_volatile_seq_interrupt(0x80b, 0);
 }
