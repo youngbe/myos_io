@@ -128,4 +128,4 @@ static_assert(KERNEL_SIZE <= 0x100000000 - 0x1000000, "Kernel too large!");
 #define KERNEL_SIZE_ALIGN2M (((size_t)(KERNEL_SIZE) + 0x1fffff) & -0x200000)
 
 // acpi
-ssize_t map_keyboard_interrupt_to_vector(const uint8_t apic_id, const uint8_t vector);
+ssize_t map_keyboard_interrupt_to_vector(uint8_t apic_id, uint8_t vector);

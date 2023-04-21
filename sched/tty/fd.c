@@ -1,5 +1,5 @@
 #include <fd.h>
-
+#include "tty-internal.h"
 
 struct FD kernel_stdout_fd =
 {

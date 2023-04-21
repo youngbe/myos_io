@@ -1,10 +1,9 @@
 // 这个文件引用自Linux源代码：https://elixir.bootlin.com/linux/latest/source/arch/x86/boot/compressed/misc.c
 // 并作了一些修改
+#include <fd.h>
+#include "tty-internal.h"
 
 #include "io.h"
-#include "tty.h"
-
-#include <fd.h>
 
 #include <threads.h>
 #include <stddef.h>
@@ -60,7 +59,7 @@ static inline void __putcharx(const char c)
     }
 }
 
-ssize_t tty_write(const struct FD *, const void *const buf, size_t size)
+static ssize_t tty_write(const struct FD *, const void *const buf, size_t size)
 {
     if (size == 0)
         return 0;
@@ -80,7 +79,7 @@ ssize_t tty_write(const struct FD *, const void *const buf, size_t size)
     return size;
 }
 
-ssize_t tty_writev(const struct FD *, const struct iovec *iov, int iovcnt)
+static ssize_t tty_writev(const struct FD *, const struct iovec *iov, int iovcnt)
 {
     if (iovcnt < 0) {
         errno = EINVAL;

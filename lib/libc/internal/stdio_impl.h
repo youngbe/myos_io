@@ -49,10 +49,15 @@ struct _IO_FILE {
     struct FD *fd;
 };
 
+extern FILE *volatile __stdin_used;
+extern FILE *volatile __stdout_used;
+extern FILE *volatile __stderr_used;
 
 int __lockfile(FILE *);
 void __unlockfile(FILE *);
 
+size_t __stdio_read(FILE *, unsigned char *, size_t);
+size_t __stdio_write(FILE *, const unsigned char *, size_t);
 int __toread(FILE *);
 int __towrite(FILE *);
 
