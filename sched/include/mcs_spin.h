@@ -41,6 +41,13 @@ static inline void __attribute__((always_inline)) spin_mutex_member_init(struct 
     spin_mutex_member->next = NULL;
 }
 
+static inline void __attribute__((always_inline, no_caller_saved_registers))
+spin_mutex_member_init_interrupt(struct Spin_Mutex_Member *const spin_mutex_member)
+{
+    spin_mutex_member->is_locked = 0;
+    spin_mutex_member->next = NULL;
+}
+
 static inline void __attribute__((always_inline)) spin_lock(spin_mtx_t *const spin_mutex, struct Spin_Mutex_Member *const spin_mutex_member)
 {
     // 为保证性能，这几句需要连着一起执行

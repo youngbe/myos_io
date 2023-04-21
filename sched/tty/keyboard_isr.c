@@ -24,7 +24,7 @@ void keyboard_isr(void *)
         struct Thread *temp_keyboard_sleeping_thread = NULL;
         if (!atomic_compare_exchange_strong_explicit(&keyboard_sleeping_thread, &temp_keyboard_sleeping_thread, (void *)1, memory_order_relaxed, memory_order_relaxed)) {
             struct Spin_Mutex_Member spin_mutex_member;
-            spin_mutex_member_init(&spin_mutex_member);
+            spin_mutex_member_init_interrupt(&spin_mutex_member);
             set_thread_schedulable_interrupt(temp_keyboard_sleeping_thread, &spin_mutex_member);
         }
     }

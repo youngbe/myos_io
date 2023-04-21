@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <limits.h>
+#include <assert.h>
 
 #define CHAR_ATTR 0b00001111
 #define ROWS 25
@@ -97,7 +98,8 @@ static ssize_t tty_writev(const struct FD *, const struct iovec *iov, int iovcnt
     ssize_t ret = 0;
     if (mtx_lock(&mtx) != thrd_success)
         abort();
-    for (size_t i = 0; i < iovcnt; ++i) {
+    static_assert(SIZE_MAX >= INT_MAX);
+    for (size_t i = 0; i < (size_t)iovcnt; ++i) {
         size_t size;
         if (iov[i].iov_len > (size_t)(SSIZE_MAX - ret))
             size = SSIZE_MAX - ret;
