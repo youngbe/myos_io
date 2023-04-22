@@ -119,6 +119,8 @@ _start:
     callq   kernel_init_part4
     // init stdio lock
     callq   kernel_init_part5
+    // init tty && keyboard_thread
+    callq   kernel_init_part6
 
     sti
 

@@ -6,7 +6,7 @@
             "request": "attach",
             "name": "Native debug",
             "executable": "${workspaceRoot}/empty.elf",
-            "target": "192.168.3.4:8864",
+            "target": "192.168.3.21:8864",
             "remote": true,
             "cwd": "${workspaceRoot}",
             "valuesFormatting": "parseText",
@@ -27,7 +27,7 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerServerAddress": "192.168.3.4:8864",
+            "miDebuggerServerAddress": "192.168.3.21:8864",
             "setupCommands": [
                 {
                     "text": "set disassemble-next-line on"
