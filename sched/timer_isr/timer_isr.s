@@ -94,17 +94,17 @@ xsave_area_size:
 
 
     # 切换至新线程%rsp
-	movq  %rsp, 16(%rcx)
-	leaq  .Lreturn(%rip), %rax
+	movq	%rsp, 16(%rcx)
+	leaq	.Lreturn(%rip), %rax
 	#NO_APP
 	movq	%rax, 24(%rcx)
-	movq	40(%rcx), %rsi
-	movq	%rsi, %rdx
-	andq	$-2, %rdx
-	testb	$1, %sil
+	movq	40(%rcx), %rdx
+	movq	%rdx, %rsi
+	andq	$-2, %rsi
+	testb	$1, %dl
 	jne	.LBB0_2
 # %bb.1:
-	lock		incq	(%rdx)
+	lock		incq	(%rsi)
 .LBB0_2:
 	movl	$0, -24(%rsp)
 	movq	$0, -16(%rsp)
@@ -176,72 +176,27 @@ xsave_area_size:
 	testq	%rdi, %rdi
 	je	.LBB0_17
 # %bb.20:
-	movq	32(%rdi), %rax
-	testq	%rax, %rax
-	je	.LBB0_26
-# %bb.21:
-	cmpq	%rdx, 40(%rdi)
-	je	.LBB0_23
-# %bb.22:
+	lock		incq	old_schedulable_threads_num(%rip)
 	#APP
-	movq  %rax, %cr3
+	jmp	switch_to_interrupt
 	#NO_APP
-.LBB0_23:
-	lock		decq	(%rdx)
-	jne	.LBB0_25
-# %bb.24:
-	#APP
-	jmp abort
-	#NO_APP
-	#APP
-	nop
-	#NO_APP
-	#APP
-	nop
-	#NO_APP
-	#APP
-	nop
-	#NO_APP
-	#APP
-	nop
-	#NO_APP
-.LBB0_25:
-	leaq	2097152(%rdi), %rax
-	movq	%rax, %gs:36
-	jmp	.LBB0_27
 .LBB0_17:
-	testb	$1, %sil
+	testb	$1, %dl
 	jne	.LBB0_19
 # %bb.18:
-	lock		decq	(%rdx)
+	lock		decq	(%rsi)
 .LBB0_19:
 	movl	$2059, %ecx                     # imm = 0x80B
 	xorl	%eax, %eax
 	xorl	%edx, %edx
 	#APP
-	popq   %rsp
-	addq   $96, %rsp
-	wrmsr
-	lock   incq    old_schedulable_threads_num(%rip)
-	jmp    .Lpop5_iretq
-	#NO_APP
-.LBB0_26:
-	orq	$1, %rsi
-	movq	%rsi, 40(%rdi)
-.LBB0_27:
-	movq	%rdi, %gs:0
-	#APP
-	movq   16(%rdi), %rsp
-	#NO_APP
-	movl	$2059, %ecx                     # imm = 0x80B
-	xorl	%eax, %eax
-	xorl	%edx, %edx
-	#APP
+	popq	%rsp
+	addq	$96, %rsp
 	wrmsr
 	#NO_APP
 	lock		incq	old_schedulable_threads_num(%rip)
 	#APP
-	jmpq   *24(%rdi)
+	jmp	.Lpop5_iretq
 
 	
 
@@ -303,6 +258,7 @@ xsave_area_size:
     lock incq   old_schedulable_threads_num(%rip)
     jmp .Lpop3_iretq
 
+
 # 保证进入时已经关闭中断
 # %rsp对齐16字节且已申请栈有16字节空间
 # 返回时会写入 EOI
@@ -331,15 +287,15 @@ empty_thread_switch_isr:
 	xorl	%eax, %eax
 	xorl	%edx, %edx
 	#APP
-	rdgsbase %rsp
-	addq   $65536, %rsp
+	rdgsbaseq	%rsp
+	addq	$65536, %rsp                    # imm = 0x10000
 	wrmsr
 	sti
-	jmp   empty_loop
+	jmp	empty_loop
 	#NO_APP
 .LBB1_5:
 	#APP
-	movq     %rsp, %rcx
+	movq	%rsp, %rcx
 	#NO_APP
 	movl	$0, (%rcx)
 	movq	$0, 8(%rcx)
@@ -366,12 +322,12 @@ empty_thread_switch_isr:
 .LBB1_6:
 	#MEMBARRIER
 .LBB1_10:
-	movq	schedulable_threads(%rip), %rsi
-	movq	8(%rsi), %rdx
-	cmpq	%rsi, %rdx
+	movq	schedulable_threads(%rip), %rdi
+	movq	8(%rdi), %rdx
+	cmpq	%rdi, %rdx
 	je	.LBB1_11
 # %bb.12:
-	movq	(%rsi), %rax
+	movq	(%rdi), %rax
 	movq	%rdx, 8(%rax)
 	jmp	.LBB1_13
 .LBB1_11:
@@ -398,56 +354,10 @@ empty_thread_switch_isr:
 	movl	$1, (%rax)
 .LBB1_17:
 	#MEMBARRIER
-	movq	%gs:8, %rax
-	movq	32(%rsi), %rcx
-	testq	%rcx, %rcx
-	je	.LBB1_23
-# %bb.18:
-	cmpq	%rax, 40(%rsi)
-	je	.LBB1_20
-# %bb.19:
+	movq	%gs:8, %rsi
 	#APP
-	movq  %rcx, %cr3
+	jmp	switch_to_interrupt
 	#NO_APP
-.LBB1_20:
-	lock		decq	(%rax)
-	jne	.LBB1_22
-# %bb.21:
-	#APP
-	jmp abort
-	#NO_APP
-	#APP
-	nop
-	#NO_APP
-	#APP
-	nop
-	#NO_APP
-	#APP
-	nop
-	#NO_APP
-	#APP
-	nop
-	#NO_APP
-.LBB1_22:
-	leaq	2097152(%rsi), %rax
-	movq	%rax, %gs:36
-	jmp	.LBB1_24
-.LBB1_23:
-	orq	$1, %rax
-	movq	%rax, 40(%rsi)
-.LBB1_24:
-	movq	%rsi, %gs:0
-	#APP
-	movq   16(%rsi), %rsp
-	#NO_APP
-	movl	$2059, %ecx                     # imm = 0x80B
-	xorl	%eax, %eax
-	xorl	%edx, %edx
-	#APP
-	wrmsr
-	#NO_APP
-	#APP
-	jmpq   *24(%rsi)
 
 
     .size   timer_isr, . - timer_isr

@@ -62,7 +62,7 @@ label_in:
                     "pushfq\n\t"
                     "cli"
                     :"+m"(__not_exist_global_sym_for_asm_seq)
-                    :"r"(current_thread)
+                    :"S"(current_thread)//, "D"(current_thread)
                     :);
             atomic_signal_fence(memory_order_acquire);
             __asm__ volatile (
@@ -132,6 +132,8 @@ label_in:
         }
         // handle c
         struct TTY *const tty = current_tty;
+        tty->tty_write(NULL, c, c_num);
+
         if (mtx_lock(&tty->read_mtx) != thrd_success)
             abort();
 
@@ -162,9 +164,6 @@ label_in:
 
         if (mtx_unlock(&tty->read_mtx) != thrd_success)
             abort();
-
-        if (save_num != 0)
-            tty->tty_write(NULL, c, save_num);
     }
 
     __asm__ volatile (

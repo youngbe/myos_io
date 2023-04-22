@@ -24,21 +24,36 @@ keyboard_isr_wrap(void)
             break;
         __asm__ volatile ("pause");
     }
+    struct Thread *current_thread;
+    struct Thread *temp_keyboard_sleeping_thread = NULL;
     if (temp_used == 0) {
         // 叫起床
-        struct Thread *temp_keyboard_sleeping_thread = NULL;
         if (!atomic_compare_exchange_strong_explicit(&keyboard_sleeping_thread, &temp_keyboard_sleeping_thread, (void *)1, memory_order_relaxed, memory_order_relaxed)) {
-            struct Spin_Mutex_Member spin_mutex_member;
-            spin_mutex_member_init_interrupt(&spin_mutex_member);
-            set_thread_schedulable_interrupt(temp_keyboard_sleeping_thread, &spin_mutex_member);
+            current_thread = thrd_currentx();
+            if (current_thread != NULL) {
+                struct Spin_Mutex_Member spin_mutex_member;
+                spin_mutex_member_init_interrupt(&spin_mutex_member);
+                set_thread_schedulable_interrupt(temp_keyboard_sleeping_thread, &spin_mutex_member);
+            }
         }
     }
     // 需要保证 keyboard_buf_used 已经写入
     // 保证叫起床已经发生
     const uint16_t temp_i = atomic_fetch_add_explicit(&keyboard_buf_ii, 1, memory_order_release) & (KEYBOARD_BUF_SIZE - 1);
     atomic_store_explicit(&keyboard_buf[temp_i], c, memory_order_relaxed);
-    atomic_signal_fence(memory_order_release);
-    wrmsr_volatile_seq_interrupt(0x80b, 0);
+    if (temp_keyboard_sleeping_thread == NULL || current_thread != NULL) {
+        atomic_signal_fence(memory_order_release);
+        wrmsr_volatile_seq_interrupt(0x80b, 0);
+        return;
+    } else {
+        __asm__ volatile (
+		"movq	%%gs:8, %%rsi\n\t"
+                "jmp    switch_to_interrupt"
+                :
+                :"D"(temp_keyboard_sleeping_thread)
+                :);
+        __builtin_unreachable();
+    }
 }
 
     __attribute__((interrupt))

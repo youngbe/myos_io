@@ -16,37 +16,90 @@ switch_to:                              # @switch_to
 	je	.LBB0_3
 # %bb.2:
 	#APP
-	movq  %rax, %cr3
+	movq	%rax, %cr3
 	#NO_APP
 .LBB0_3:
 	lock		decq	(%rsi)
 	jne	.LBB0_5
 # %bb.4:
 	#APP
-	leaq   -16(%rsp), %rax
+	leaq	-16(%rsp), %rax
 	#NO_APP
 	#APP
-	jmp  abort
+	jmp	abort
 	#NO_APP
 .LBB0_5:
 	leaq	2097152(%rdi), %rax
 	movq	%rax, %gs:36
 	movq	%rdi, %gs:0
 	#APP
-	movq   16(%rdi), %rsp
-	jmpq   *24(%rdi)
+	movq	16(%rdi), %rsp
+	jmpq	*24(%rdi)
 	#NO_APP
 .LBB0_6:
 	orq	$1, %rsi
 	movq	%rsi, 40(%rdi)
 	movq	%rdi, %gs:0
 	#APP
-	movq   16(%rdi), %rsp
-	jmpq   *24(%rdi)
+	movq	16(%rdi), %rsp
+	jmpq	*24(%rdi)
 	#NO_APP
 .Lfunc_end0:
 	.size	switch_to, .Lfunc_end0-switch_to
 	.size	.Lswitch_to$local, .Lfunc_end0-switch_to
+                                        # -- End function
+	.section	.text.switch_to_interrupt,"ax",@progbits
+	.globl	switch_to_interrupt             # -- Begin function switch_to_interrupt
+	.p2align	4, 0x90
+	.type	switch_to_interrupt,@function
+switch_to_interrupt:                    # @switch_to_interrupt
+.Lswitch_to_interrupt$local:
+	.type	.Lswitch_to_interrupt$local,@function
+# %bb.0:
+	movq	32(%rdi), %rax
+	testq	%rax, %rax
+	je	.LBB1_6
+# %bb.1:
+	cmpq	%rsi, 40(%rdi)
+	je	.LBB1_3
+# %bb.2:
+	#APP
+	movq	%rax, %cr3
+	#NO_APP
+.LBB1_3:
+	lock		decq	(%rsi)
+	jne	.LBB1_5
+# %bb.4:
+	#APP
+	leaq	-16(%rsp), %rax
+	#NO_APP
+	#APP
+	jmp	abort
+	#NO_APP
+.LBB1_5:
+	leaq	2097152(%rdi), %rax
+	movq	%rax, %gs:36
+	jmp	.LBB1_7
+.LBB1_6:
+	orq	$1, %rsi
+	movq	%rsi, 40(%rdi)
+.LBB1_7:
+	movq	%rdi, %gs:0
+	#APP
+	movq	16(%rdi), %rsp
+	#NO_APP
+	movl	$2059, %ecx                     # imm = 0x80B
+	xorl	%eax, %eax
+	xorl	%edx, %edx
+	#APP
+	wrmsr
+	#NO_APP
+	#APP
+	jmpq	*24(%rdi)
+	#NO_APP
+.Lfunc_end1:
+	.size	switch_to_interrupt, .Lfunc_end1-switch_to_interrupt
+	.size	.Lswitch_to_interrupt$local, .Lfunc_end1-switch_to_interrupt
                                         # -- End function
 	.section	.text.switch_to_empty,"ax",@progbits
 	.globl	switch_to_empty                 # -- Begin function switch_to_empty
@@ -65,7 +118,7 @@ switch_to_empty:                        # @switch_to_empty
 	#NO_APP
 	#MEMBARRIER
 	#APP
-	movq     %rsp, %rcx
+	movq	%rsp, %rcx
 	#NO_APP
 	movl	$0, (%rcx)
 	movq	$0, 8(%rcx)
@@ -77,89 +130,89 @@ switch_to_empty:                        # @switch_to_empty
 	lock		decq	idle_cores_num(%rip)
 	movq	schedulable_threads_num(%rip), %rax
 	testq	%rax, %rax
-	je	.LBB1_4
+	je	.LBB2_4
 # %bb.1:
 	movq	%rdi, %rsi
 	.p2align	4, 0x90
-.LBB1_2:                                # =>This Inner Loop Header: Depth=1
+.LBB2_2:                                # =>This Inner Loop Header: Depth=1
 	leaq	-1(%rax), %rdx
 	lock		cmpxchgq	%rdx, schedulable_threads_num(%rip)
-	je	.LBB1_5
-# %bb.3:                                #   in Loop: Header=BB1_2 Depth=1
+	je	.LBB2_5
+# %bb.3:                                #   in Loop: Header=BB2_2 Depth=1
 	#APP
 	pause
 	#NO_APP
 	testq	%rax, %rax
-	jne	.LBB1_2
-.LBB1_4:
+	jne	.LBB2_2
+.LBB2_4:
 	lock		incq	idle_cores_num(%rip)
 	#APP
 	sti
-	addq  $16, %rsp
-	jmp   empty_loop
+	addq	$16, %rsp
+	jmp	empty_loop
 	#NO_APP
-.LBB1_5:
+.LBB2_5:
 	#MEMBARRIER
 	movq	%rcx, %rax
 	xchgq	%rax, schedulable_threads_lock(%rip)
 	testq	%rax, %rax
-	je	.LBB1_6
+	je	.LBB2_6
 # %bb.7:
 	movq	%rcx, 8(%rax)
 	#MEMBARRIER
 	movl	(%rcx), %eax
 	testl	%eax, %eax
-	jne	.LBB1_10
+	jne	.LBB2_10
 	.p2align	4, 0x90
-.LBB1_8:                                # =>This Inner Loop Header: Depth=1
+.LBB2_8:                                # =>This Inner Loop Header: Depth=1
 	#APP
 	pause
 	#NO_APP
 	movl	(%rcx), %eax
 	testl	%eax, %eax
-	je	.LBB1_8
-	jmp	.LBB1_10
-.LBB1_6:
+	je	.LBB2_8
+	jmp	.LBB2_10
+.LBB2_6:
 	#MEMBARRIER
-.LBB1_10:
+.LBB2_10:
 	movq	schedulable_threads(%rip), %rdi
 	movq	8(%rdi), %rdx
 	cmpq	%rdi, %rdx
-	je	.LBB1_11
+	je	.LBB2_11
 # %bb.12:
 	movq	(%rdi), %rax
 	movq	%rdx, 8(%rax)
-	jmp	.LBB1_13
-.LBB1_11:
+	jmp	.LBB2_13
+.LBB2_11:
 	xorl	%eax, %eax
-.LBB1_13:
+.LBB2_13:
 	movq	%rax, schedulable_threads(%rip)
 	xorl	%edx, %edx
 	movq	%rcx, %rax
 	lock		cmpxchgq	%rdx, schedulable_threads_lock(%rip)
-	je	.LBB1_17
+	je	.LBB2_17
 	.p2align	4, 0x90
 # %bb.15:
 	movq	8(%rcx), %rax
 	testq	%rax, %rax
-	jne	.LBB1_16
-.LBB1_14:                               # =>This Inner Loop Header: Depth=1
+	jne	.LBB2_16
+.LBB2_14:                               # =>This Inner Loop Header: Depth=1
 	#APP
 	pause
 	#NO_APP
 	movq	8(%rcx), %rax
 	testq	%rax, %rax
-	je	.LBB1_14
-.LBB1_16:
+	je	.LBB2_14
+.LBB2_16:
 	movl	$1, (%rax)
-.LBB1_17:
+.LBB2_17:
 	#MEMBARRIER
 	#APP
-	jmp  switch_to
+	jmp	switch_to
 	#NO_APP
-.Lfunc_end1:
-	.size	switch_to_empty, .Lfunc_end1-switch_to_empty
-	.size	.Lswitch_to_empty$local, .Lfunc_end1-switch_to_empty
+.Lfunc_end2:
+	.size	switch_to_empty, .Lfunc_end2-switch_to_empty
+	.size	.Lswitch_to_empty$local, .Lfunc_end2-switch_to_empty
                                         # -- End function
-	.ident	"Ubuntu clang version 16.0.0 (1~exp5ubuntu1)"
+	.ident	"Ubuntu clang version 16.0.0 (1~exp5ubuntu3)"
 	.section	".note.GNU-stack","",@progbits

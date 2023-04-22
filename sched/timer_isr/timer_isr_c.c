@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-
+//extern noreturn void switch_to_interrupt(struct Thread *new_thread, struct Proc *old_proc);
 extern struct Core_Data kernel_gs_base;
 noreturn void kkk(void)
 {
@@ -74,42 +74,14 @@ noreturn void kkk(void)
                 :);
         __builtin_unreachable();
     }
-
-    const uint64_t *const new_cr3 = new_thread->cr3;
-    if (new_cr3 != NULL) {
-        // new thread is not kernel thread
-        const struct Proc *const new_proc = new_thread->proc;
-        if (new_proc != old_proc)
-            __asm__ volatile("movq  %1, %%cr3":"+m"(__not_exist_global_sym_for_asm_seq):"r"(new_cr3):);
-        if (atomic_fetch_sub_explicit(&old_proc->threads_num, 1, memory_order_release) == 1) {
-            __asm__ volatile ("jmp abort":::);
-            __asm__ volatile ("nop":::);
-            __asm__ volatile ("nop":::);
-            __asm__ volatile ("nop":::);
-            __asm__ volatile ("nop":::);
-        }
-        kernel_gs_base.tss.rsp0 = (uintptr_t)&new_thread->stack[sizeof(new_thread->stack) / sizeof(new_thread->stack[0])];
-    } else
-        new_thread->proc = (struct Proc *)(uintptr_t)((uintptr_t)old_proc | 1);
-
-    kernel_gs_base.running_thread = new_thread;
-    __asm__ volatile (
-            "movq   %1, %%rsp"
-            :"+m"(__not_exist_global_sym_for_asm_seq)
-            :"m"(new_thread->rsp)
-            :);
-    __asm__ volatile (
-            "wrmsr"
-            :"+m"(__not_exist_global_sym_for_asm_seq)
-            :"c"((uint32_t)0x80b), "a"((uint32_t)0), "d"((uint32_t)0)
-            :);
     atomic_fetch_add_explicit(&old_schedulable_threads_num, 1, memory_order_acq_rel);
     __asm__ volatile (
-            "jmpq   *%1"
-            :"+m"(__not_exist_global_sym_for_asm_seq)
-            :"m"(new_thread->return_hook)
+            "jmp        switch_to_interrupt"
+            :
+            :"D"(new_thread), "S"(old_proc)
             :);
     __builtin_unreachable();
+    //switch_to_interrupt(new_thread, old_proc);
 }
 
 noreturn void kkk2(void)
@@ -166,39 +138,11 @@ noreturn void kkk2(void)
     spin_unlock(&schedulable_threads_lock, p_spin_mutex_member);
     atomic_signal_fence(memory_order_acq_rel);
 
-    struct Proc *const old_proc = kernel_gs_base.proc;
-    const uint64_t *const new_cr3 = new_thread->cr3;
-    if (new_cr3 != NULL) {
-        // new thread is not kernel thread
-        const struct Proc *const new_proc = new_thread->proc;
-        if (new_proc != old_proc)
-            __asm__ volatile("movq  %1, %%cr3":"+m"(__not_exist_global_sym_for_asm_seq):"r"(new_cr3):);
-        if (atomic_fetch_sub_explicit(&old_proc->threads_num, 1, memory_order_release) == 1) {
-            __asm__ volatile ("jmp abort":::);
-            __asm__ volatile ("nop":::);
-            __asm__ volatile ("nop":::);
-            __asm__ volatile ("nop":::);
-            __asm__ volatile ("nop":::);
-        }
-        kernel_gs_base.tss.rsp0 = (uintptr_t)&new_thread->stack[sizeof(new_thread->stack) / sizeof(new_thread->stack[0])];
-    } else
-        new_thread->proc = (struct Proc *)(uintptr_t)((uintptr_t)old_proc | 1);
-
-    kernel_gs_base.running_thread = new_thread;
+    //switch_to_interrupt(new_thread, kernel_gs_base.proc);
     __asm__ volatile (
-            "movq   %1, %%rsp"
-            :"+m"(__not_exist_global_sym_for_asm_seq)
-            :"m"(new_thread->rsp)
-            :);
-    __asm__ volatile (
-            "wrmsr"
-            :"+m"(__not_exist_global_sym_for_asm_seq)
-            :"c"((uint32_t)0x80b), "a"((uint32_t)0), "d"((uint32_t)0)
-            :);
-    __asm__ volatile (
-            "jmpq   *%1"
-            :"+m"(__not_exist_global_sym_for_asm_seq)
-            :"m"(new_thread->return_hook)
+            "jmp        switch_to_interrupt"
+            :
+            :"D"(new_thread), "S"(kernel_gs_base.proc)
             :);
     __builtin_unreachable();
 }
