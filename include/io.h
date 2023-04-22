@@ -26,10 +26,7 @@ static inline uint8_t inb_interrupt(const uint16_t port)
     return val;
 }
 
-#ifndef __WORDSIZE
-#error "__WORDSIZE is not defined!"
-#endif
-#if __WORDSIZE == 64
+#if UINTPTR_MAX == 0xffffffffffffffff
 __attribute__((no_caller_saved_registers))
 static inline uint64_t rdmsr_volatile_seq_interrupt(const uint32_t msr)
 {
@@ -53,7 +50,7 @@ static inline void wrmsr_volatile_seq_interrupt(const uint32_t msr, const uint64
             :"a"(val), "d"(val >> 32), "c"(msr)
             :);
 }
-#elif __WORDSIZE == 32
+#elif UINTPTR_MAX == 0xffffffff
 __attribute__((no_caller_saved_registers))
 static inline uint64_t rdmsr_volatile_seq_interrupt(const uint32_t msr)
 {
@@ -99,10 +96,7 @@ static inline uint8_t inb(const uint16_t port)
     return val;
 }
 
-#ifndef __WORDSIZE
-#error "__WORDSIZE is not defined!"
-#endif
-#if __WORDSIZE == 64
+#if UINTPTR_MAX == 0xffffffffffffffff
 static inline uint64_t rdmsr_volatile_seq(const uint32_t msr)
 {
     uint64_t low;
@@ -124,7 +118,7 @@ static inline void wrmsr_volatile_seq(const uint32_t msr, const uint64_t val)
             :"a"(val), "d"(val >> 32), "c"(msr)
             :);
 }
-#elif __WORDSIZE == 32
+#elif UINTPTR_MAX == 0xffffffff
 static inline uint64_t rdmsr_volatile_seq(const uint32_t msr)
 {
     uint32_t low;

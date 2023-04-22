@@ -26,7 +26,7 @@ BOOTLOADER_CFLAGS=(-fno-pie -m32)
 BOOTLOADER_LDFLAGS=(-no-pie)
 BOOTLOADER_CCLDFLAGS=(-static -m32)
 
-KERNEL_CPPFLAGS=(-I include)
+KERNEL_CPPFLAGS=(-nostdinc -isystem /usr/include/x86_64-linux-musl -isystem /usr/lib/llvm-16/lib/clang/16/include -isystem /usr/include -I include)
 KERNEL_CFLAGS=(-fpie)
 KERNEL_LDFLAGS=(-pie)
 KERNEL_CCLDFLAGS=(-static-pie)
@@ -57,7 +57,7 @@ out_files+=(lib/libc/math/*.s)
 
 # libc: string stdio stdlib wchar errno ctypes
 out_files+=(lib/libc/string/*.s)
-src_files=(lib/libc/string/*.c lib/libc/stdio/*.c lib/libc/stdlib/*.c lib/libc/wchar/*.c lib/libc/errno/*.c lib/libc/ctype/*.c lib/libc/internal/*.c)
+src_files=(lib/libc/string/*.c lib/libc/stdio/*.c lib/libc/stdlib/*.c lib/libc/multibyte/*.c lib/libc/errno/*.c lib/libc/ctype/*.c lib/libc/internal/*.c lib/libc/locale/*.c)
 for src_file in "${src_files[@]}"
 do
     out_file="out/${src_file}.o"

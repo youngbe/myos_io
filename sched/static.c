@@ -16,5 +16,5 @@
 #include "tty/tty_read.c"
 #include "tty/tty_readv.c"
 #include "tty/tty_write.c"
-#include "tty/default_tty.c"
+#include "tty/init.c"
 #include "tty/fd.c"

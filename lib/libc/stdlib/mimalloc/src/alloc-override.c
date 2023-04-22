@@ -249,9 +249,7 @@ extern "C" {
   // override it, but both _ISOC11_SOURCE and __USE_ISOC11 are undefined in Conda GCC7 or GCC9.
   // Fortunately, in the case where `aligned_alloc` is declared as `static inline` it
   // uses internally `memalign`, `posix_memalign`, or `_aligned_malloc` so we  can avoid overriding it ourselves.
-  #if __USE_ISOC11
   void* aligned_alloc(size_t alignment, size_t size) { return mi_aligned_alloc(alignment, size); }
-  #endif
 #endif
 
 // no forwarding here due to aliasing/name mangling issues

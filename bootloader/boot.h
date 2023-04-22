@@ -12,10 +12,7 @@
 
 #include "io.h"
 
-#ifndef __WORDSIZE
-# error "__WORDSIZE is not defined!"
-#endif
-#if __WORDSIZE != 32
+#if UINTPTR_MAX != 0xffffffff
 # error "this file must be 32 bit"
 #endif
 

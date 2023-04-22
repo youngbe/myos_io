@@ -56,4 +56,4 @@ extern volatile _Atomic(struct Thread *) keyboard_sleeping_thread;
 // 决定键盘中断输入到哪个tty
 extern struct TTY *current_tty;
 
-static struct TTY default_tty;
+int keyboard_thread(void *);
