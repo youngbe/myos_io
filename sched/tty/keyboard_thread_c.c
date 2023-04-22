@@ -4,7 +4,6 @@
 #include "thrd_current.h"
 
 
-#include <sched.h>
 #include <io.h>
 
 #include <stdbool.h>
@@ -98,10 +97,12 @@ label_in:
         // 保证 keyboard_buf '\0' 已写入，sleeping_thread已写入
         last_used = atomic_fetch_sub_explicit(&keyboard_buf_used, 1, memory_order_release);
         keyboard_buf_oi &= KEYBOARD_BUF_SIZE - 1;
-        while (last_used != 1) {
+        while (true) {
             const char temp_c = atomic_load_explicit(&keyboard_buf[keyboard_buf_oi], memory_order_relaxed);
             if (temp_c == '\0')
                 break;
+            if (last_used == 1)
+                atomic_store_explicit(&keyboard_sleeping_thread, NULL, memory_order_relaxed);
             atomic_store_explicit(&keyboard_buf[keyboard_buf_oi++], '\0', memory_order_relaxed);
             // 使用 memory_order_release
             // 保证 keyboard_buf '\0' 已写入，sleeping_thread已写入
