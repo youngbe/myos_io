@@ -13,6 +13,24 @@
 
 int keyboard_thread(void *)
 {
+    uint64_t fsbase;
+    uint32_t mxcsr;
+    uint16_t x87_cw;
+    __asm__ volatile (
+            "rdfsbase   %0"
+            :"=r"(fsbase), "+m"(__not_exist_global_sym_for_asm_seq)
+            :
+            :);
+    __asm__ volatile (
+            "stmxcsr    %0"
+            :"=m"(mxcsr), "+m"(__not_exist_global_sym_for_asm_seq)
+            :
+            :);
+    __asm__ volatile (
+            "fstcw      %0"
+            :"=m"(x87_cw), "+m"(__not_exist_global_sym_for_asm_seq)
+            :
+            :);
     /*
     __asm__ volatile (
             ""
@@ -63,7 +81,7 @@ label_in:
                         "jmp        switch_to_empty\n"
                         ".Lwake_up:\n\t"
                         "popfq"
-                        :"+D"(temp_current_proc)
+                        :"+D"(temp_current_proc), "+m"(__not_exist_global_sym_for_asm_seq)
                         :
                         :"cc", "rax", "rbx", "rcx", "rdx", "rsi", "rbp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
                         "st", "mm0", "mm1", "mm2", "mm3", "mm4", "mm5", "mm6", "mm7",
@@ -128,8 +146,8 @@ label_in:
                 tty->read_buf[read_buf_ii++] = c[i];
                 read_buf_ii %= TTY_READ_BUF_SIZE;
                 if (c[i] == '\n') {
-                    if (read_buf_used + i > new_visible)
-                        new_visible = read_buf_used + i;
+                    if (read_buf_used + i + 1 > new_visible)
+                        new_visible = read_buf_used + i + 1;
                 }
             }
             tty->read_buf_ii = read_buf_ii; 
@@ -148,5 +166,21 @@ label_in:
         if (save_num != 0)
             tty->tty_write(NULL, c, save_num);
     }
+
+    __asm__ volatile (
+            "wrfsbase   %1"
+            :"+m"(__not_exist_global_sym_for_asm_seq)
+            :"r"(fsbase)
+            :);
+    __asm__ volatile (
+            "stmxcsr    %1"
+            :"+m"(__not_exist_global_sym_for_asm_seq)
+            :"m"(mxcsr)
+            :);
+    __asm__ volatile (
+            "fstcw      %1"
+            :"+m"(__not_exist_global_sym_for_asm_seq)
+            :"m"(x87_cw)
+            :);
     return 0;
 }

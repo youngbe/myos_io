@@ -14,13 +14,23 @@ keyboard_thread:                        # @keyboard_thread
 	pushq	%r13
 	pushq	%r12
 	pushq	%rbx
-	subq	$65560, %rsp                    # imm = 0x10018
+	subq	$65576, %rsp                    # imm = 0x10028
+	#APP
+	rdfsbaseq	%rax
+	#NO_APP
+	#APP
+	stmxcsr	28(%rsp)
+	#NO_APP
+	#APP
+	wait
+	fnstcw	14(%rsp)
+	#NO_APP
+	xorl	%eax, %eax
+	movq	%rax, (%rsp)                    # 8-byte Spill
 	#APP
 	movq	%gs:0, %rax
 	#NO_APP
-	movq	%rax, 8(%rsp)                   # 8-byte Spill
-	xorl	%eax, %eax
-	movq	%rax, (%rsp)                    # 8-byte Spill
+	movq	%rax, 16(%rsp)                  # 8-byte Spill
 	leaq	keyboard_buf(%rip), %rbp
 	.p2align	4, 0x90
 .LBB0_1:                                # =>This Loop Header: Depth=1
@@ -31,7 +41,7 @@ keyboard_thread:                        # @keyboard_thread
 	#APP
 	leaq	.Lwake_up(%rip), %rax
 	#NO_APP
-	movq	8(%rsp), %rcx                   # 8-byte Reload
+	movq	16(%rsp), %rcx                  # 8-byte Reload
 	#APP
 	pushfq
 	cli
@@ -70,12 +80,12 @@ keyboard_thread:                        # @keyboard_thread
 	je	.LBB0_6
 	jmp	.LBB0_8
 	.p2align	4, 0x90
-.LBB0_29:                               #   in Loop: Header=BB0_8 Depth=2
+.LBB0_33:                               #   in Loop: Header=BB0_8 Depth=2
 	movq	%rbx, %rdi
 	callq	mtx_unlock@PLT
 	testl	%eax, %eax
-	jne	.LBB0_31
-# %bb.30:                               #   in Loop: Header=BB0_8 Depth=2
+	jne	.LBB0_35
+# %bb.34:                               #   in Loop: Header=BB0_8 Depth=2
 	cmpq	$1, %r15
 	je	.LBB0_1
 .LBB0_5:                                #   in Loop: Header=BB0_8 Depth=2
@@ -96,7 +106,7 @@ keyboard_thread:                        # @keyboard_thread
                                         # =>  This Loop Header: Depth=2
                                         #       Child Loop BB0_9 Depth 3
                                         #       Child Loop BB0_28 Depth 3
-	movb	%al, 16(%rsp)
+	movb	%al, 32(%rsp)
 	movb	$0, (%rcx,%rbp)
 	movq	$-1, %r15
 	lock		xaddq	%r15, keyboard_buf_used(%rip)
@@ -113,7 +123,7 @@ keyboard_thread:                        # @keyboard_thread
 	lock		xaddq	%r15, keyboard_buf_used(%rip)
                                         # kill: def $ecx killed $ecx killed $rcx def $rcx
 	andl	$2097151, %ecx                  # imm = 0x1FFFFF
-	movb	%al, 16(%rsp,%r13)
+	movb	%al, 32(%rsp,%r13)
 	incq	%r13
 	cmpq	$65536, %r13                    # imm = 0x10000
 	je	.LBB0_14
@@ -144,7 +154,7 @@ keyboard_thread:                        # @keyboard_thread
 	vzeroupper
 	callq	mtx_lock@PLT
 	testl	%eax, %eax
-	jne	.LBB0_31
+	jne	.LBB0_35
 # %bb.16:                               #   in Loop: Header=BB0_8 Depth=2
 	movq	2097168(%r12), %rax
 	movl	$2097152, %r14d                 # imm = 0x200000
@@ -152,7 +162,7 @@ keyboard_thread:                        # @keyboard_thread
 	cmpq	%r14, %r13
 	cmovbq	%r13, %r14
 	testq	%r14, %r14
-	je	.LBB0_29
+	je	.LBB0_33
 # %bb.17:                               #   in Loop: Header=BB0_8 Depth=2
 	leaq	(%r14,%rax), %r13
 	cmpq	$1048576, %r13                  # imm = 0x100000
@@ -163,39 +173,6 @@ keyboard_thread:                        # @keyboard_thread
 	jne	.LBB0_27
 # %bb.18:                               #   in Loop: Header=BB0_8 Depth=2
 	xorl	%edx, %edx
-	jmp	.LBB0_19
-	.p2align	4, 0x90
-.LBB0_27:                               #   in Loop: Header=BB0_8 Depth=2
-	movq	%r14, %rsi
-	movabsq	$9223372036854775806, %rdx      # imm = 0x7FFFFFFFFFFFFFFE
-	andq	%rdx, %rsi
-	leaq	1(%rax), %rdi
-	xorl	%edx, %edx
-	.p2align	4, 0x90
-.LBB0_28:                               #   Parent Loop BB0_1 Depth=1
-                                        #     Parent Loop BB0_8 Depth=2
-                                        # =>    This Inner Loop Header: Depth=3
-	movzbl	16(%rsp,%rdx), %r8d
-	leal	1(%rcx), %r9d
-	movb	%r8b, (%r12,%rcx)
-	andl	$2097151, %r9d                  # imm = 0x1FFFFF
-	leaq	(%rax,%rdx), %r8
-	cmpq	%rbp, %r8
-	cmovbeq	%rbp, %r8
-	cmpb	$10, 16(%rsp,%rdx)
-	cmovneq	%rbp, %r8
-	addl	$2, %ecx
-	andl	$2097151, %ecx                  # imm = 0x1FFFFF
-	leaq	(%rdi,%rdx), %rbp
-	cmpq	%r8, %rbp
-	cmovbeq	%r8, %rbp
-	movzbl	17(%rsp,%rdx), %r10d
-	movb	%r10b, (%r12,%r9)
-	cmpb	$10, 17(%rsp,%rdx)
-	cmovneq	%r8, %rbp
-	addq	$2, %rdx
-	cmpq	%rdx, %rsi
-	jne	.LBB0_28
 .LBB0_19:                               #   in Loop: Header=BB0_8 Depth=2
 	testb	$1, %r14b
 	je	.LBB0_21
@@ -203,11 +180,12 @@ keyboard_thread:                        # @keyboard_thread
 	leal	1(%rcx), %esi
 	andl	$2097151, %esi                  # imm = 0x1FFFFF
 	addq	%rdx, %rax
+	incq	%rax
 	cmpq	%rbp, %rax
 	cmovbeq	%rbp, %rax
-	movzbl	16(%rsp,%rdx), %edi
+	movzbl	32(%rsp,%rdx), %edi
 	movb	%dil, (%r12,%rcx)
-	cmpb	$10, 16(%rsp,%rdx)
+	cmpb	$10, 32(%rsp,%rdx)
 	cmoveq	%rax, %rbp
 	movq	%rsi, %rcx
 .LBB0_21:                               #   in Loop: Header=BB0_8 Depth=2
@@ -221,7 +199,7 @@ keyboard_thread:                        # @keyboard_thread
 	leaq	2097216(%r12), %rdi
 	callq	cnd_broadcast@PLT
 	testl	%eax, %eax
-	jne	.LBB0_31
+	jne	.LBB0_35
 .LBB0_24:                               #   in Loop: Header=BB0_8 Depth=2
 	movq	%rbp, 2097176(%r12)
 .LBB0_25:                               #   in Loop: Header=BB0_8 Depth=2
@@ -230,16 +208,58 @@ keyboard_thread:                        # @keyboard_thread
 	callq	mtx_unlock@PLT
 	testl	%eax, %eax
 	leaq	keyboard_buf(%rip), %rbp
-	jne	.LBB0_31
+	jne	.LBB0_35
 # %bb.26:                               #   in Loop: Header=BB0_8 Depth=2
 	xorl	%edi, %edi
-	leaq	16(%rsp), %rsi
+	leaq	32(%rsp), %rsi
 	movq	%r14, %rdx
 	callq	*2097232(%r12)
 	cmpq	$1, %r15
 	jne	.LBB0_5
 	jmp	.LBB0_1
-.LBB0_31:
+	.p2align	4, 0x90
+.LBB0_27:                               #   in Loop: Header=BB0_8 Depth=2
+	movq	%r14, %rsi
+	movabsq	$9223372036854775806, %rdx      # imm = 0x7FFFFFFFFFFFFFFE
+	andq	%rdx, %rsi
+	leaq	1(%rax), %rdi
+	xorl	%edx, %edx
+	jmp	.LBB0_28
+	.p2align	4, 0x90
+.LBB0_32:                               #   in Loop: Header=BB0_28 Depth=3
+	cmpb	$10, %r8b
+	cmoveq	%r9, %rbp
+	addq	$2, %rdi
+	cmpq	%rdx, %rsi
+	je	.LBB0_19
+.LBB0_28:                               #   Parent Loop BB0_1 Depth=1
+                                        #     Parent Loop BB0_8 Depth=2
+                                        # =>    This Inner Loop Header: Depth=3
+	movzbl	32(%rsp,%rdx), %r9d
+	leal	1(%rcx), %r8d
+	movb	%r9b, (%r12,%rcx)
+	andl	$2097151, %r8d                  # imm = 0x1FFFFF
+	movq	%rdi, %r9
+	cmpq	%rbp, %rdi
+	ja	.LBB0_30
+# %bb.29:                               #   in Loop: Header=BB0_28 Depth=3
+	movq	%rbp, %r9
+.LBB0_30:                               #   in Loop: Header=BB0_28 Depth=3
+	cmpb	$10, 32(%rsp,%rdx)
+	cmoveq	%r9, %rbp
+	movzbl	33(%rsp,%rdx), %r9d
+	addl	$2, %ecx
+	movb	%r9b, (%r12,%r8)
+	andl	$2097151, %ecx                  # imm = 0x1FFFFF
+	movzbl	33(%rsp,%rdx), %r8d
+	addq	$2, %rdx
+	leaq	1(%rdi), %r9
+	cmpq	%rbp, %r9
+	ja	.LBB0_32
+# %bb.31:                               #   in Loop: Header=BB0_28 Depth=3
+	movq	%rbp, %r9
+	jmp	.LBB0_32
+.LBB0_35:
 	callq	abort@PLT
 .Lfunc_end0:
 	.size	keyboard_thread, .Lfunc_end0-keyboard_thread
