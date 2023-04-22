@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-ssize_t tty_read(const struct FD *const fd, void *const buf, size_t size)
+static ssize_t tty_read(const struct FD *const fd, void *const buf, size_t size)
 {
     if (size == 0)
         return 0;

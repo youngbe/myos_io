@@ -12,6 +12,7 @@ FILE __stderr_FILE = {
 	.flags = F_PERM | F_NORD,
 	.lbf = -1,
 	.write = __stdio_write,
+	.seek = __stdio_seek,
 	.need_lock = false,
     //.mutex : inited by code
 };

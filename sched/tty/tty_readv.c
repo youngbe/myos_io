@@ -7,7 +7,7 @@
 #include <errno.h>
 #include <limits.h>
 
-ssize_t tty_readv(const struct FD *fd, const struct iovec *iov, int iovcnt)
+static ssize_t tty_readv(const struct FD *fd, const struct iovec *iov, int iovcnt)
 {
     if (iovcnt < 0) {
         errno = EINVAL;

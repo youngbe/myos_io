@@ -40,8 +40,10 @@ struct _IO_FILE {
 	unsigned char *wbase;
 	size_t (*read)(FILE *, unsigned char *, size_t);
 	size_t (*write)(FILE *, const unsigned char *, size_t);
+	off_t (*seek)(FILE *, off_t, int);
 	unsigned char *buf;
 	size_t buf_size;
+	FILE *prev, *next;
     struct FD *fd;
 	int mode;
     bool need_lock;
@@ -61,12 +63,16 @@ void __unlockfile(FILE *);
 
 size_t __stdio_read(FILE *, unsigned char *, size_t);
 size_t __stdio_write(FILE *, const unsigned char *, size_t);
+off_t __stdio_seek(FILE *, off_t, int);
 int __toread(FILE *);
 int __towrite(FILE *);
 
 int __overflow(FILE *, int), __uflow(FILE *);
 
 size_t __fwritex(const unsigned char *, size_t, FILE *);
+FILE *__ofl_add(FILE *f);
+FILE **__ofl_lock(void);
+void __ofl_unlock(void);
 
 #define feof(f) ((f)->flags & F_EOF)
 #define ferror(f) ((f)->flags & F_ERR)

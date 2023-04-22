@@ -11,6 +11,7 @@ FILE __stdin_FILE = {
 	.fd = &kernel_stdin_fd,
 	.flags = F_PERM | F_NOWR,
 	.read = __stdio_read,
+	.seek = __stdio_seek,
 	.need_lock = false,
     //.mutex : inited by code
 };

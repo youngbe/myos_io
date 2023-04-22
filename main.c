@@ -15,7 +15,8 @@ noreturn void kernel_main()
     char str[200];
     while (true) {
         printf(":#");
-        scanf("%[^\n]", str);
+	fflush(stdout);
+        scanf("%[^\n]%*c", str);
         printf("get common: %s\n", str);
     }
 

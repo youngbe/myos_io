@@ -12,19 +12,9 @@ FILE __stdout_FILE = {
 	.flags = F_PERM | F_NORD,
 	.lbf = '\n',
 	.write = __stdio_write,
+    .seek = __stdio_seek,
 	.need_lock = false,
     //.mutex : inited by code
 };
 FILE *const stdout = &__stdout_FILE;
 FILE *volatile __stdout_used = &__stdout_FILE;
-
-#include <stdlib.h>
-void kernel_init_part5(void)
-{
-    __stdin_FILE.need_lock = __stdout_FILE.need_lock = __stderr_FILE.need_lock = true;
-    if (mtx_init(&__stdin_FILE.mutex, mtx_plain | mtx_recursive) != thrd_success
-	|| mtx_init(&__stdout_FILE.mutex, mtx_plain | mtx_recursive) != thrd_success
-	|| mtx_init(&__stderr_FILE.mutex, mtx_plain | mtx_recursive) != thrd_success
-	)
-        abort();
-}
