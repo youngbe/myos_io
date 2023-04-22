@@ -49,6 +49,11 @@ noreturn void __attribute__((noinline)) switch_to(struct Thread *const new_threa
     __builtin_unreachable();
 }
 
+// stack_safe
+// cli
+// 需要事先保存好当前线程上下文 rsp, return_hook, 并保存到阻塞列表/可调度列表（killed线程除外）
+// 如果是从空线程调用，记得减idle_cores_num
+// 如果是从用户态线程调用，记得 ++虚拟线程数
 noreturn void __attribute__((noinline)) switch_to_interrupt(struct Thread *const new_thread, struct Proc *const old_proc)
 {
     const uint64_t *const new_cr3 = new_thread->cr3;

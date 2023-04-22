@@ -2,6 +2,7 @@
 
 #include "mcs_spin.h"
 #include "sched-internal.h"
+#include "thrd_current.h"
 
 #include <io.h>
 
@@ -46,8 +47,9 @@ keyboard_isr_wrap(void)
         wrmsr_volatile_seq_interrupt(0x80b, 0);
         return;
     } else {
+        atomic_fetch_sub_explicit(&idle_cores_num, 1, memory_order_relaxed);
         __asm__ volatile (
-		"movq	%%gs:8, %%rsi\n\t"
+                "movq	%%gs:8, %%rsi\n\t"
                 "jmp    switch_to_interrupt"
                 :
                 :"D"(temp_keyboard_sleeping_thread)
