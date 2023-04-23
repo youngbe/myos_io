@@ -14,7 +14,7 @@ volatile _Atomic(struct Thread *) keyboard_sleeping_thread = NULL;
 
 static volatile atomic_size_t keyboard_buf_ii = 0;
 static inline __attribute__((always_inline, no_caller_saved_registers)) void
-keyboard_isr_wrap(void)
+keyboard_isr_wrap(void *rsp)
 {
     const char c = inb_interrupt(0x60);
     size_t temp_used = atomic_load_explicit(&keyboard_buf_used, memory_order_relaxed);
@@ -25,17 +25,21 @@ keyboard_isr_wrap(void)
             break;
         __asm__ volatile ("pause");
     }
-    struct Thread *current_thread;
+    struct Thread *current_thread = NULL;
     struct Thread *temp_keyboard_sleeping_thread = NULL;
     if (temp_used == 0) {
         // 叫起床
         if (!atomic_compare_exchange_strong_explicit(&keyboard_sleeping_thread, &temp_keyboard_sleeping_thread, (void *)1, memory_order_relaxed, memory_order_relaxed)) {
-            current_thread = thrd_currentx();
+            if ((((uint64_t *)rsp)[1] & 0b11) != 0)
+                current_thread = (void *)1;
+            else
+                current_thread = thrd_currentx();
             if (current_thread != NULL) {
                 struct Spin_Mutex_Member spin_mutex_member;
                 spin_mutex_member_init_interrupt(&spin_mutex_member);
                 set_thread_schedulable_interrupt(temp_keyboard_sleeping_thread, &spin_mutex_member);
-            }
+            } else
+		    atomic_fetch_sub_explicit(&idle_cores_num, 1, memory_order_relaxed);
         }
     }
     // 需要保证 keyboard_buf_used 已经写入
@@ -47,7 +51,6 @@ keyboard_isr_wrap(void)
         wrmsr_volatile_seq_interrupt(0x80b, 0);
         return;
     } else {
-        atomic_fetch_sub_explicit(&idle_cores_num, 1, memory_order_relaxed);
         __asm__ volatile (
                 "movq	%%gs:8, %%rsi\n\t"
                 "jmp    switch_to_interrupt"
@@ -59,7 +62,7 @@ keyboard_isr_wrap(void)
 }
 
     __attribute__((interrupt))
-void keyboard_isr(void *)
+void keyboard_isr(void *rsp)
 {
-    keyboard_isr_wrap();
+    keyboard_isr_wrap(rsp);
 }
