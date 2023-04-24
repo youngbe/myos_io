@@ -137,4 +137,5 @@ objcopy -O binary \
 dd conv=fdatasync if=bootloader.bin ibs=512 conv=sync of=boot.img
 dd conv=fdatasync if=kernel.bin ibs=512 conv=sync of=boot.img oflag=append conv=notrunc
 dd conv=fdatasync if=/dev/zero ibs=1M count=2 of=boot.img oflag=append conv=notrunc
+echo -e "o\nn\n\n\n\n\na\nw\n" | fdisk -B boot.img
 qemu-img convert -f raw -O vmdk boot.img boot.vmdk

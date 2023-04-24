@@ -15,7 +15,7 @@ SECTIONS
     .boot_sector_text : { *(.boot_sector_text) }
     .boot_sector_data : { *(.boot_sector_data) }
     ASSERT(_start == 0x7c00, "error linking bootloader : _start != 0x7c00 !")
-    ASSERT(. <= 0x7c00 + 446, "error linking bootloader : boot_sector size too large!")
+    ASSERT(. <= 0x7c00 + 440, "error linking bootloader : boot_sector size too large!")
     . = 0x7dfe;
     .boot_sector_magic : { KEEP(*(.boot_sector_magic)) }
     ASSERT(. == 0x7e00, "error linking bootloader!")
