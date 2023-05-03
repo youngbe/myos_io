@@ -57,7 +57,6 @@ static ssize_t tty_write(const struct FD *fd, const void *buf, size_t size);
 static ssize_t tty_read(const struct FD *fd, void *buf, size_t size);
 static ssize_t tty_readv(const struct FD *fd, const struct iovec *iov, int iovcnt);
 static ssize_t tty_writev(const struct FD *fd, const struct iovec *iov, int iovcnt);
-static void tty_unwrite(size_t);
 static off_t tty_lseek(const struct FD *fd, off_t offset, int whence);
 
 

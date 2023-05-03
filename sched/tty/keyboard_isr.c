@@ -5,7 +5,6 @@
 #include "thrd_current.h"
 
 #include <io.h>
-#include <stdlib.h>
 
 volatile _Atomic(uint16_t) keyboard_buf[KEYBOARD_BUF_SIZE] = {0};
 volatile _Atomic(uint32_t) keyboard_buf_used = 0;

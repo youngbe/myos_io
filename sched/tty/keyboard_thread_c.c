@@ -204,8 +204,9 @@ label_in:
                 break;
         }
 
-        // 将获取到的键盘事件数组转化为ascii数组（字符串）
-        char c[KEYBOARD_BUF_SIZE];
+        // 将获取到的键盘事件数组转化为等效的 偏移ascii数组（字符串）
+        // 偏移数组的含义：先输入 back_num 个退格健，再输入数组
+        char c[KEYBOARD_THREAD_BUF_SIZE];
         size_t c_num = 0;
         size_t back_num = 0;
         static bool is_cap = false;
@@ -254,12 +255,11 @@ label_in:
             abort();
         const size_t old_read_buf_visible = tty->read_buf_visible;
         const size_t old_read_buf_used = tty->read_buf_used;
-        const size_t old_read_buf_unvisible = old_read_buf_used - old_read_buf_visible;
-        if (old_read_buf_unvisible < back_num)
-            back_num = old_read_buf_unvisible;
+        if (old_read_buf_used - old_read_buf_visible < back_num)
+            back_num = old_read_buf_used - old_read_buf_visible;
         if (back_num != 0) {
             char temp[back_num * 3];
-            for (size_t i = 0; i < back_numl; ++i) {
+            for (size_t i = 0; i < back_num; ++i) {
                 temp[i * 3] = '\b';
                 temp[i * 3 + 1] = ' ';
                 temp[i * 3 + 2] = '\b';
@@ -276,37 +276,38 @@ label_in:
             tty->write(NULL, c, c_num);
         else
             goto label_unlock;
-
-        const size_t read_buf_used = old_read_buf_used - back_num;
-        size_t read_buf_ii = tty->read_buf_ii;
-        if (back_num != 0) {
-            if (read_buf_ii >= back_num)
-                read_buf_ii -= back_num;
-            else
-                read_buf_ii = TTY_READ_BUF_SIZE - (back_num - read_buf_ii) - 1;
-        }
-        const size_t save_num = c_num > TTY_READ_BUF_SIZE - read_buf_used ? TTY_READ_BUF_SIZE - read_buf_used : c_num;
-        if (save_num != 0) {
-            size_t new_visible = 0;
-            if (read_buf_used + save_num >= TTY_READ_BUF_VISIBLE_THRESHOLD)
-                new_visible = read_buf_used + save_num;
-            for (size_t i = 0; i < save_num; ++i) {
-                tty->read_buf[read_buf_ii++] = c[i];
-                read_buf_ii %= TTY_READ_BUF_SIZE;
-                if (c[i] == '\n') {
-                    if (read_buf_used + i + 1 > new_visible)
-                        new_visible = read_buf_used + i + 1;
+        {
+            const size_t read_buf_used = old_read_buf_used - back_num;
+            size_t read_buf_ii = tty->read_buf_ii;
+            if (back_num != 0) {
+                if (read_buf_ii >= back_num)
+                    read_buf_ii -= back_num;
+                else
+                    read_buf_ii = TTY_READ_BUF_SIZE - (back_num - read_buf_ii);
+            }
+            const size_t save_num = c_num > TTY_READ_BUF_SIZE - read_buf_used ? TTY_READ_BUF_SIZE - read_buf_used : c_num;
+            if (save_num != 0) {
+                size_t new_visible = 0;
+                if (read_buf_used + save_num >= TTY_READ_BUF_VISIBLE_THRESHOLD)
+                    new_visible = read_buf_used + save_num;
+                for (size_t i = 0; i < save_num; ++i) {
+                    tty->read_buf[read_buf_ii++] = c[i];
+                    read_buf_ii %= TTY_READ_BUF_SIZE;
+                    if (c[i] == '\n') {
+                        if (read_buf_used + i + 1 > new_visible)
+                            new_visible = read_buf_used + i + 1;
+                    }
+                }
+                if (new_visible > 0) {
+                    if (old_read_buf_visible == 0)
+                        if (cnd_broadcast(&tty->read_cnd) != thrd_success)
+                            abort();
+                    tty->read_buf_visible = new_visible;
                 }
             }
-            if (new_visible > 0) {
-                if (old_read_buf_visible == 0)
-                    if (cnd_broadcast(&tty->read_cnd) != thrd_success)
-                        abort();
-                tty->read_buf_visible = new_visible;
-            }
+            tty->read_buf_ii = read_buf_ii; 
+            tty->read_buf_used = read_buf_used + save_num;
         }
-        tty->read_buf_ii = read_buf_ii; 
-        tty->read_buf_used = read_buf_used + save_num;
 label_unlock:
         if (mtx_unlock(&tty->read_mtx) != thrd_success)
             abort();

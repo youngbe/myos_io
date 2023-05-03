@@ -48,6 +48,10 @@ static inline void __putcharx(const char c)
     if (c == '\b') {
         if (x != 0)
             --x;
+        else if (y != 0) {
+            --y;
+            x = COLS - 1;
+        }
     } else if (c == '\n') {
         x = 0;
         if (++y >= ROWS) {
