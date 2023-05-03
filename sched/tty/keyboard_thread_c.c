@@ -241,12 +241,8 @@ label_in:
                 temp_c = to_ascii_cap[key];
             else
                 temp_c = to_ascii[key];
-            if (temp_c != '\0') {
-                if (back_num > 0)
-                    --back_num;
-                else
-                    c[c_num++] = temp_c;
-            }
+            if (temp_c != '\0')
+                c[c_num++] = temp_c;
         }
 
 
@@ -254,34 +250,46 @@ label_in:
             continue;
         // handle c
         struct TTY *const tty = current_tty;
-        if (back_num != 0) {
-            if (mtx_lock(&tty->read_mtx) != thrd_success)
-                abort();
-            const size_t old_read_buf_visible = tty->read_buf_visible;
-            if (old_read_buf_visible > back_num)
-                tty->read_buf_visible = old_read_buf_visible - back_num;
-            else if (old_read_buf_visible != 0) {
-                tty->read_buf_visible = 0;
-                back_num = old_read_buf_visible;
-            }
-            if (mtx_unlock(&tty->read_mtx) != thrd_success)
-                abort();
-            if (old_read_buf_visible != 0)
-                tty->tty_unwrite(back_num);
-            continue;
-        }
-        tty->tty_write(NULL, c, c_num);
-
         if (mtx_lock(&tty->read_mtx) != thrd_success)
             abort();
+        const size_t old_read_buf_visible = tty->read_buf_visible;
+        const size_t old_read_buf_used = tty->read_buf_used;
+        const size_t old_read_buf_unvisible = old_read_buf_used - old_read_buf_visible;
+        if (old_read_buf_unvisible < back_num)
+            back_num = old_read_buf_unvisible;
+        if (back_num != 0) {
+            char temp[back_num * 3];
+            for (size_t i = 0; i < back_numl; ++i) {
+                temp[i * 3] = '\b';
+                temp[i * 3 + 1] = ' ';
+                temp[i * 3 + 2] = '\b';
+            }
+            if (c_num != 0) {
+                struct iovec iovs[2] = {
+                    { .iov_base = temp, .iov_len = back_num * 3 },
+                    { .iov_base = c, .iov_len = c_num }
+                };
+                tty->writev(NULL, iovs, 2);
+            } else
+                tty->write(NULL, temp, back_num * 3);
+        } else if (c_num != 0)
+            tty->write(NULL, c, c_num);
+        else
+            goto label_unlock;
 
-        const size_t read_buf_used = tty->read_buf_used;
+        const size_t read_buf_used = old_read_buf_used - back_num;
+        size_t read_buf_ii = tty->read_buf_ii;
+        if (back_num != 0) {
+            if (read_buf_ii >= back_num)
+                read_buf_ii -= back_num;
+            else
+                read_buf_ii = TTY_READ_BUF_SIZE - (back_num - read_buf_ii) - 1;
+        }
         const size_t save_num = c_num > TTY_READ_BUF_SIZE - read_buf_used ? TTY_READ_BUF_SIZE - read_buf_used : c_num;
         if (save_num != 0) {
             size_t new_visible = 0;
             if (read_buf_used + save_num >= TTY_READ_BUF_VISIBLE_THRESHOLD)
                 new_visible = read_buf_used + save_num;
-            size_t read_buf_ii = tty->read_buf_ii;
             for (size_t i = 0; i < save_num; ++i) {
                 tty->read_buf[read_buf_ii++] = c[i];
                 read_buf_ii %= TTY_READ_BUF_SIZE;
@@ -290,16 +298,16 @@ label_in:
                         new_visible = read_buf_used + i + 1;
                 }
             }
-            tty->read_buf_ii = read_buf_ii; 
             if (new_visible > 0) {
-                if (tty->read_buf_visible == 0)
+                if (old_read_buf_visible == 0)
                     if (cnd_broadcast(&tty->read_cnd) != thrd_success)
                         abort();
                 tty->read_buf_visible = new_visible;
             }
-            tty->read_buf_used = read_buf_used + save_num;
         }
-
+        tty->read_buf_ii = read_buf_ii; 
+        tty->read_buf_used = read_buf_used + save_num;
+label_unlock:
         if (mtx_unlock(&tty->read_mtx) != thrd_success)
             abort();
     }

@@ -43,7 +43,12 @@ static inline void update_cursor(void)
 
 static inline void __putcharx(const char c)
 {
-    if (c == '\n') {
+    if (c == '\0')
+        return;
+    if (c == '\b') {
+        if (x != 0)
+            --x;
+    } else if (c == '\n') {
         x = 0;
         if (++y >= ROWS) {
             scroll();
@@ -115,24 +120,6 @@ static ssize_t tty_writev(const struct FD *, const struct iovec *iov, int iovcnt
     if (mtx_unlock(&mtx) != thrd_success)
         abort();
     return ret;
-}
-
-static void tty_unwritec(void)
-{
-    if (mtx_lock(&mtx) != thrd_success)
-        abort();
-    if (x != 0)
-        --x;
-    else if (y != 0) {
-        --y;
-        x = COLS - 1;
-    } else
-        goto label_out;
-    VIDMEM[(x + COLS * y) * 2] = '\0';
-    update_cursor();
-label_out:
-    if (mtx_unlock(&mtx) != thrd_success)
-        abort();
 }
 
 // This is code for init

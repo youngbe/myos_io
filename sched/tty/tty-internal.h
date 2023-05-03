@@ -33,7 +33,9 @@ struct TTY
     mtx_t read_mtx;
     cnd_t read_cnd;
 
-    ssize_t (*tty_write)(const struct FD *fd, const void *, size_t);
+    // fd不被使用，仅是为了兼容
+    ssize_t (*write)(const struct FD *fd, const void *buf, size_t size);
+    ssize_t (*writev)(const struct FD *fd, const struct iovec *iov, int iovcnt);
 };
 
 struct FD
@@ -42,7 +44,6 @@ struct FD
     ssize_t (*write)(const struct FD *fd, const void *buf, size_t size);
     ssize_t (*readv)(const struct FD *fd, const struct iovec *iov, int iovcnt);
     ssize_t (*writev)(const struct FD *fd, const struct iovec *iov, int iovcnt);
-    void (*unwrite)(size_t);
     off_t (*lseek)(const struct FD *fd, off_t offset, int whence);
     int (*close)(const struct FD *fd);
     void *data;
