@@ -11,6 +11,79 @@
 
 #define KEYBOARD_THREAD_BUF_SIZE 65536
 
+static bool keymap[KEY_NUM + 1] = {false};
+static const char to_ascii[KEY_NUM + 1] = {
+    [_1] = '1',
+    [_2] = '2',
+    [_3] = '3',
+    [_4] = '4',
+    [_5] = '5',
+    [_6] = '6',
+    [_7] = '7',
+    [_8] = '8',
+    [_9] = '9',
+    [_0] = '0',
+    [__1] = '1',
+    [__2] = '2',
+    [__3] = '3',
+    [__4] = '4',
+    [__5] = '5',
+    [__6] = '6',
+    [__7] = '7',
+    [__8] = '8',
+    [__9] = '9',
+    [__0] = '0',
+    [A] = 'a',
+    [B] = 'b',
+    [C] = 'c',
+    [D] = 'd',
+    [E] = 'e',
+    [F] = 'f',
+    [G] = 'g',
+    [H] = 'h',
+    [I] = 'i',
+    [J] = 'j',
+    [K] = 'k',
+    [L] = 'l',
+    [M] = 'm',
+    [N] = 'n',
+    [O] = 'o',
+    [P] = 'p',
+    [Q] = 'q',
+    [R] = 'r',
+    [S] = 's',
+    [T] = 't',
+    [U] = 'u',
+    [V] = 'v',
+    [W] = 'w',
+    [X] = 'x',
+    [Y] = 'y',
+    [Z] = 'z',
+    [BACK_QUOTE] = '`',
+    [SUB] = '-',
+    [EQU] = '=',
+    [TAB] = '\t',
+    [OPEN_BRACKET] = '[',
+    [CLOSE_BRACKET] = ']',
+    [BACKSLASH] = '\\',
+    [SEMICOLON] = ';',
+    [QUOTE] = '\'',
+    [ENTER] = '\n',
+    [COMMA] = ',',
+    [DOT] = '.',
+    [SLASH] = '/',
+    [SPACE] = ' ',
+    [__SLASH] = '/',
+    [__ASTERISK] = '*',
+    [__SUB] = '-',
+    [__ADD] = '+',
+    [__ENTER] = '\n',
+    [__DOT] = '.',
+};
+static const char to_ascii_shift[KEY_NUM + 1];
+static const char to_ascii_cap[KEY_NUM + 1];
+static const char to_ascii_cap_shift[KEY_NUM + 1];
+
 int keyboard_thread(void *)
 {
     uint64_t fsbase;
@@ -101,37 +174,102 @@ label_in:
             atomic_store_explicit(&keyboard_sleeping_thread, NULL, memory_order_relaxed);
         }
         //assert(keyboard_buf_used >= 1);
-        char c[KEYBOARD_THREAD_BUF_SIZE];
-        size_t c_num = 1;
+        uint16_t key_codes[KEYBOARD_THREAD_BUF_SIZE];
+        size_t key_codes_num = 1;
 
         {
-            char temp_c;
-            while ((temp_c = atomic_load_explicit(&keyboard_buf[keyboard_buf_oi], memory_order_relaxed)) == '\0')
+            uint16_t temp;
+            while ((temp = atomic_load_explicit(&keyboard_buf[keyboard_buf_oi], memory_order_relaxed)) == '\0')
                 __asm__ volatile ("pause":::);
-            c[0] = temp_c;
+            key_codes[0] = temp;
         }
-        atomic_store_explicit(&keyboard_buf[keyboard_buf_oi++], '\0', memory_order_relaxed);
+        atomic_store_explicit(&keyboard_buf[keyboard_buf_oi++], 0, memory_order_relaxed);
         // 使用 memory_order_release
-        // 保证 keyboard_buf '\0' 已写入，sleeping_thread已写入
+        // 保证 keyboard_buf 0 已写入，sleeping_thread已写入
         last_used = atomic_fetch_sub_explicit(&keyboard_buf_used, 1, memory_order_release);
         keyboard_buf_oi &= KEYBOARD_BUF_SIZE - 1;
         while (true) {
-            const char temp_c = atomic_load_explicit(&keyboard_buf[keyboard_buf_oi], memory_order_relaxed);
-            if (temp_c == '\0')
+            const uint16_t temp_code = atomic_load_explicit(&keyboard_buf[keyboard_buf_oi], memory_order_relaxed);
+            if (temp_code == 0)
                 break;
             if (last_used == 1)
                 atomic_store_explicit(&keyboard_sleeping_thread, NULL, memory_order_relaxed);
-            atomic_store_explicit(&keyboard_buf[keyboard_buf_oi++], '\0', memory_order_relaxed);
+            atomic_store_explicit(&keyboard_buf[keyboard_buf_oi++], 0, memory_order_relaxed);
             // 使用 memory_order_release
-            // 保证 keyboard_buf '\0' 已写入，sleeping_thread已写入
+            // 保证 keyboard_buf 0 已写入，sleeping_thread已写入
             last_used = atomic_fetch_sub_explicit(&keyboard_buf_used, 1, memory_order_release);
             keyboard_buf_oi &= KEYBOARD_BUF_SIZE - 1;
-            c[c_num++] = temp_c;
-            if (c_num == KEYBOARD_THREAD_BUF_SIZE)
+            key_codes[key_codes_num++] = temp_code;
+            if (key_codes_num == KEYBOARD_THREAD_BUF_SIZE)
                 break;
         }
+
+        // 将获取到的键盘事件数组转化为ascii数组（字符串）
+        char c[KEYBOARD_BUF_SIZE];
+        size_t c_num = 0;
+        size_t back_num = 0;
+        static bool is_cap = false;
+        for (size_t i = 0; i < key_codes_num; ++i) {
+            // 按钮
+            const uint16_t key = key_codes[i] >> 1;
+            const bool is_press = (key_codes[i] & 1) == 1;
+            if (key == CAP && is_press && !keymap[CAP])
+                // 如果是按下大写的情况
+                is_cap = !is_cap;
+
+            // 更新每个按键的按下/释放情况
+            keymap[key] = is_press;
+            if (!is_press)
+                // 如果仅是按键释放的话，不用做什么
+                continue;
+
+            if (key == BACK && is_press) {
+                // backspace按下
+                if (c_num > 0)
+                    --c_num;
+                else
+                    ++back_num;
+                continue;
+            }
+
+            char temp_c;
+            if (is_cap && (keymap[LEFT_SHIFT] || keymap[RIGHT_SHIFT]))
+                temp_c = to_ascii_cap_shift[key];
+            else if (!is_cap && (keymap[LEFT_SHIFT] || keymap[RIGHT_SHIFT]))
+                temp_c = to_ascii_shift[key];
+            else if (is_cap && !(keymap[LEFT_SHIFT] || keymap[RIGHT_SHIFT]))
+                temp_c = to_ascii_cap[key];
+            else
+                temp_c = to_ascii[key];
+            if (temp_c != '\0') {
+                if (back_num > 0)
+                    --back_num;
+                else
+                    c[c_num++] = temp_c;
+            }
+        }
+
+
+        if (c_num == 0 && back_num == 0)
+            continue;
         // handle c
         struct TTY *const tty = current_tty;
+        if (back_num != 0) {
+            if (mtx_lock(&tty->read_mtx) != thrd_success)
+                abort();
+            const size_t old_read_buf_visible = tty->read_buf_visible;
+            if (old_read_buf_visible > back_num)
+                tty->read_buf_visible = old_read_buf_visible - back_num;
+            else if (old_read_buf_visible != 0) {
+                tty->read_buf_visible = 0;
+                back_num = old_read_buf_visible;
+            }
+            if (mtx_unlock(&tty->read_mtx) != thrd_success)
+                abort();
+            if (old_read_buf_visible != 0)
+                tty->tty_unwrite(back_num);
+            continue;
+        }
         tty->tty_write(NULL, c, c_num);
 
         if (mtx_lock(&tty->read_mtx) != thrd_success)

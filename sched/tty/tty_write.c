@@ -117,6 +117,23 @@ static ssize_t tty_writev(const struct FD *, const struct iovec *iov, int iovcnt
     return ret;
 }
 
+static void tty_unwritec(void)
+{
+    if (mtx_lock(&mtx) != thrd_success)
+        abort();
+    if (x != 0)
+        --x;
+    else if (y != 0) {
+        --y;
+        x = COLS - 1;
+    } else
+        goto label_out;
+    VIDMEM[(x + COLS * y) * 2] = '\0';
+    update_cursor();
+label_out:
+    if (mtx_unlock(&mtx) != thrd_success)
+        abort();
+}
 
 // This is code for init
 void kernel_init_part0(void)

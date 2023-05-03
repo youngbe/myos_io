@@ -5,6 +5,7 @@
 #include "thrd_current.h"
 
 #include <io.h>
+#include <stdlib.h>
 
 volatile _Atomic(uint16_t) keyboard_buf[KEYBOARD_BUF_SIZE] = {0};
 volatile _Atomic(uint32_t) keyboard_buf_used = 0;
@@ -230,47 +231,47 @@ keyboard_isr_wrap(void *rsp)
 {
     uint8_t scan_code;
     if (get_scan_code(&scan_code) != 0)
-        abort();
+        goto label_abort;
 
     uint16_t key_code;
     if (scan_code == 0xE0) {
         if (get_scan_code(&scan_code) != 0)
-            abort();
+            goto label_abort;
         if (scan_code == 0x2A) {
             if (get_scan_code(&scan_code) != 0 || scan_code != 0xE0)
-                abort();
+                goto label_abort;
             if (get_scan_code(&scan_code) != 0 || scan_code != 0x37)
-                abort();
+                goto label_abort;
             key_code = (PRTSC << 1) | 1;
         } else if (scan_code == 0xB7) {
             if (get_scan_code(&scan_code) != 0 || scan_code != 0xE0)
-                abort();
+                goto label_abort;
             if (get_scan_code(&scan_code) != 0 || scan_code != 0xAA)
-                abort();
-            key_code = RTSC << 1;
+                goto label_abort;
+            key_code = PRTSC << 1;
         } else
             key_code = ps2_set1_map2[scan_code];
     } else if (scan_code == 0xE1) {
         if (get_scan_code(&scan_code) != 0 || scan_code != 0x1D)
-            abort();
+            goto label_abort;
         if (get_scan_code(&scan_code) != 0 || scan_code != 0x45)
-            abort();
+            goto label_abort;
         if (get_scan_code(&scan_code) != 0 || scan_code != 0xE1)
-            abort();
+            goto label_abort;
         if (get_scan_code(&scan_code) != 0 || scan_code != 0x9D)
-            abort();
+            goto label_abort;
         if (get_scan_code(&scan_code) != 0 || scan_code != 0xC5)
-            abort();
+            goto label_abort;
         key_code = (PAUSE << 1) | 1;
     } else
         key_code = ps2_set1_map[scan_code];
 
     if ((inb(0x64) & 1) != 0)
-        abort();
+        goto label_abort;
     if (key_code == 0)
-        abort();
+        goto label_abort;
 
-    size_t temp_used = atomic_load_explicit(&keyboard_buf_used, memory_order_relaxed);
+    uint32_t temp_used = atomic_load_explicit(&keyboard_buf_used, memory_order_relaxed);
     while (true) {
         if (temp_used == KEYBOARD_BUF_SIZE)
             return;
@@ -292,13 +293,13 @@ keyboard_isr_wrap(void *rsp)
                 spin_mutex_member_init_interrupt(&spin_mutex_member);
                 set_thread_schedulable_interrupt(temp_keyboard_sleeping_thread, &spin_mutex_member);
             } else
-		    atomic_fetch_sub_explicit(&idle_cores_num, 1, memory_order_relaxed);
+                atomic_fetch_sub_explicit(&idle_cores_num, 1, memory_order_relaxed);
         }
     }
     // 需要保证 keyboard_buf_used 已经写入
     // 保证叫起床已经发生
     const uint16_t temp_i = atomic_fetch_add_explicit(&keyboard_buf_ii, 1, memory_order_release) & (KEYBOARD_BUF_SIZE - 1);
-    atomic_store_explicit(&keyboard_buf[temp_i], c, memory_order_relaxed);
+    atomic_store_explicit(&keyboard_buf[temp_i], key_code, memory_order_relaxed);
     if (temp_keyboard_sleeping_thread == NULL || current_thread != NULL) {
         atomic_signal_fence(memory_order_release);
         wrmsr_volatile_seq_interrupt(0x80b, 0);
@@ -312,6 +313,10 @@ keyboard_isr_wrap(void *rsp)
                 :);
         __builtin_unreachable();
     }
+
+label_abort:
+    __asm__ volatile ("jmp abort");
+    __builtin_unreachable();
 }
 
     __attribute__((interrupt))
