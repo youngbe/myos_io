@@ -10,6 +10,7 @@ static struct TTY default_tty = {
     // .read_mtx
     // .read_cnd
     .tty_write = tty_write,
+    .tty_writev = tty_writev
 };
 
 struct TTY *current_tty = &default_tty;
