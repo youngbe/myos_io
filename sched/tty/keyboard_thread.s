@@ -167,6 +167,7 @@ keyboard_thread:                        # @keyboard_thread
 	leaq	.Lwake_up(%rip), %rax
 	#NO_APP
 	#APP
+    pushq   %rbp
 	pushfq
 	movq	%r15, -56(%rbp)                 # 8-byte Spill
 	cli
@@ -188,6 +189,7 @@ keyboard_thread:                        # @keyboard_thread
 	jmp	switch_to_empty
 .Lwake_up:
 	popfq
+    popq   %rbp
 	#NO_APP
 	leaq	to_ascii_cap_shift(%rip), %r13
 	leaq	to_ascii_cap(%rip), %r12
@@ -200,7 +202,7 @@ keyboard_thread:                        # @keyboard_thread
 .LBB0_3:                                #   in Loop: Header=BB0_1 Depth=1
 	#APP
 	sti
-	addq	$8, %rsp
+	addq	$16, %rsp
 	#NO_APP
 	movq	$0, keyboard_sleeping_thread(%rip)
 	jmp	.LBB0_5
