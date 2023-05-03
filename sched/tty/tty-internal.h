@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
+// 这个数字需要是2的整数倍
 #define KEYBOARD_BUF_SIZE 0x200000
 
 #define TTY_READ_BUF_SIZE 0x200000

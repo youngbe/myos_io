@@ -2,18 +2,22 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// 键盘有103个按钮
-#define KEY_NUM 103
+// 键盘有100个按钮
+#define KEY_NUM 100
 
 enum {
     A = 1, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
     F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
     _1, _2, _3, _4, _5, _6, _7, _8, _9, _0,
     __1, __2, __3, __4, __5, __6, __7, __8, __9, __0,
-    ESC, PRTSC, SCRLK, PAUSE,
+    ESC, PRTSC, SCRLK, PAUSE, INS, HOME, PAGE_UP, DEL, END, PAGE_DOWN,
     BACK_QUOTE, SUB, EQU, BACK,
     TAB, OPEN_BRACKET, CLOSE_BRACKET, BACKSLASH,
-    CAP, 
+    CAP, SEMICOLON, QUOTE, ENTER,
+    LEFT_SHIFT, COMMA, DOT, SLASH, RIGHT_SHIFT,
+    LEFT_CTRL, LEFT_ALT, RIGHT_ALT, RIGHT_CTRL,
+    CURSOR_UP, CURSOR_DOWN, CURSOR_LEFT, CURSOR_RIGHT,
+    __NUM, __SLASH, __ASTERISK, __SUB, __ADD, __ENTER, __DOT
 };
 
 // 只有一个扫描码时，使用这个map
@@ -57,7 +61,7 @@ static const uint16_t ps2_set1_map[UINT8_MAX] = {
     [0x25] = (K << 1) | 1,
     [0x26] = (L << 1) | 1,
     [0x27] = (SEMICOLON << 1) | 1,
-    [0x28] = (SINGLE_QUOTE << 1) | 1,
+    [0x28] = (QUOTE << 1) | 1,
     [0x29] = (BACK_QUOTE << 1) | 1,
     [0x2a] = (LEFT_SHIFT << 1) | 1,
     [0x2b] = (BACKSLASH << 1) | 1,
@@ -142,7 +146,7 @@ static const uint16_t ps2_set1_map[UINT8_MAX] = {
     [0x80 + 0x25] = K << 1,
     [0x80 + 0x26] = L << 1,
     [0x80 + 0x27] = SEMICOLON << 1,
-    [0x80 + 0x28] = SINGLE_QUOTE << 1,
+    [0x80 + 0x28] = QUOTE << 1,
     [0x80 + 0x29] = BACK_QUOTE << 1,
     [0x80 + 0x2a] = LEFT_SHIFT << 1,
     [0x80 + 0x2b] = BACKSLASH << 1,
@@ -191,6 +195,34 @@ static const uint16_t ps2_set1_map[UINT8_MAX] = {
 };
 // 当第一个扫描码 == 0xE0 时，第二个扫描码使用这个map
 static const uint16_t ps2_set1_map2[UINT8_MAX] = {
+    [0x1c] = (__ENTER << 1) | 1,
+    [0x1d] = (RIGHT_CTRL << 1) | 1,
+    [0x35] = (__SLASH << 1) | 1,
+    [0x38] = (RIGHT_ALT << 1) | 1,
+    [0x47] = (HOME << 1) | 1,
+    [0x48] = (CURSOR_UP << 1) | 1,
+    [0x49] = (PAGE_UP << 1) | 1,
+    [0x4b] = (CURSOR_LEFT << 1) | 1,
+    [0x4d] = (CURSOR_RIGHT << 1) | 1,
+    [0x4f] = (END << 1) | 1,
+    [0x50] = (CURSOR_DOWN << 1) | 1,
+    [0x51] = (PAGE_DOWN << 1) | 1,
+    [0x52] = (INSERT << 1) | 1,
+    [0x53] = (DEL << 1) | 1,
+    [0x80 + 0x1c] = __ENTER << 1,
+    [0x80 + 0x1d] = RIGHT_CTRL << 1,
+    [0x80 + 0x35] = __SLASH << 1,
+    [0x80 + 0x38] = RIGHT_ALT << 1,
+    [0x80 + 0x47] = HOME << 1,
+    [0x80 + 0x48] = CURSOR_UP << 1,
+    [0x80 + 0x49] = PAGE_UP << 1,
+    [0x80 + 0x4b] = CURSOR_LEFT << 1,
+    [0x80 + 0x4d] = CURSOR_RIGHT << 1,
+    [0x80 + 0x4f] = END << 1,
+    [0x80 + 0x50] = CURSOR_DOWN << 1,
+    [0x80 + 0x51] = PAGE_DOWN << 1,
+    [0x80 + 0x52] = INSERT << 1,
+    [0x80 + 0x53] = DEL << 1,
 };
 
 // return a key_event
@@ -200,6 +232,7 @@ uint16_t scan()
     if (getc(&c) != 0)
         abort();
 
+    uint16_t ret;
     if (c == 0xE0) {
         if (getc(&c) != 0)
             abort();
@@ -208,15 +241,15 @@ uint16_t scan()
                 abort();
             if (getc(&c) != 0 || c != 0x37)
                 abort();
-            ret = PRTSC_PRESS;
+            ret = (PRTSC << 1) | 1;
         } else if (c == 0xB7) {
             if (getc(&c) != 0 || c != 0xE0)
                 abort();
             if (getc(&c) != 0 || c != 0xAA)
                 abort();
-            ret = PRTSC_RELEASE;
+            ret = RTSC << 1;
         } else
-            ret = e0map[c];
+            ret = ps2_set1_map2[c];
     } else if (c == 0xE1) {
         if (getc(&c) != 0 || c != 0x1D)
             abort();
@@ -228,9 +261,9 @@ uint16_t scan()
             abort();
         if (getc(&c) != 0 || c != 0xC5) 
             abort();
-        ret = PAUSE_PRESS;
+        ret = (PAUSE << 1) | 1;
     } else
-        ret = in0map[c];
+        ret = ps2_set1_map[c];
 
     if (!empty())
         abort();
