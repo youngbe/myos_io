@@ -49,15 +49,11 @@ bool check(const char *);
 noreturn void kernel_main(void)
 {
     Num a={NULL},b={NULL},result={NULL};
-    printf("-------------------------------high pr2.0-------------------------------\n");
-    printf("can do calc\n");
-    printf("10^9 -> 6.3s (i5-8300H)\n");
-    printf("10^6 * 10^6 -> 14s (i5-8300H)\n");
-    printf("-----------------------------------------------------------------------------\n\n\n");
+    printf("--- Calc version 2.0 ----\n");
     int8_t fuhao;
     LEN baoliu;
     scan(&a,&b,&fuhao,&baoliu);
-    printf("calcing...\n");
+    printf("calculating ...\n");
     calc_baoliu(fuhao,&a,&b,&result,baoliu);
     putchar('\n');
     print(&a);
@@ -69,7 +65,7 @@ noreturn void kernel_main(void)
     print(&result);
     putchar('\n');
     putchar('(');
-    fuhao==3&&(printf("no sishewuru)\n"),1);
+    fuhao==3&&(printf("without rounding)\n"),1);
     free(a.num);
     free(b.num);
     free(result.num);
@@ -148,14 +144,14 @@ inline void jian(Num const*const Num_a,Num const*const Num_b,Num *const Num_resu
 {
     if((__int128_t)Num_a->float_segment+Num_a->len>FLOAT_WIDTH_MAX||(__int128_t)Num_b->float_segment+Num_b->len>FLOAT_WIDTH_MAX)
     {
-        printf("too many wei!\n");
+        printf("Excessive number of digits!\n");
         exit(1);
     }
     FLOAT_WIDTH max=(Num_a->float_segment+(FLOAT_WIDTH)Num_a->len>Num_b->float_segment+(FLOAT_WIDTH)Num_b->len)?Num_a->float_segment+Num_a->len:Num_b->float_segment+Num_b->len;
     FLOAT_WIDTH min=Num_a->float_segment<Num_b->float_segment?Num_a->float_segment:Num_b->float_segment;
     if((__int128_t)max-min+1>MALLOC_MAX)
     {
-        printf("too many wei，can't malloc\n");
+        printf("Excessive number of digits, can't malloc\n");
         exit(1);
     }
     NUM_WIDTH *const result=Num_result->num=(NUM_WIDTH *)calloc(max-min+1,sizeof(NUM_WIDTH));
@@ -167,7 +163,7 @@ inline void jian(Num const*const Num_a,Num const*const Num_b,Num *const Num_resu
     Num_result->float_segment=min;
     if((__int128_t)Num_a->len>MALLOC_MAX/sizeof(NUM_WIDTH))
     {
-        printf("位数过多，无法malloc\n");
+        printf("Excessive number of digits, can't malloc\n");
         exit(1);
     }
     memcpy(result+Num_a->float_segment-min,Num_a->num,Num_a->len*sizeof(NUM_WIDTH));
@@ -200,20 +196,20 @@ inline void jia(Num const*const Num_a,Num const*const Num_b,Num *const Num_resul
 {
     if((__int128_t)Num_a->float_segment+Num_a->len>FLOAT_WIDTH_MAX||(__int128_t)Num_b->float_segment+Num_b->len>FLOAT_WIDTH_MAX)
     {
-        printf("位数过多\n");
+        printf("Excessive number of digits!\n");
         exit(1);
     }
     FLOAT_WIDTH max=(Num_a->float_segment+(FLOAT_WIDTH)Num_a->len>Num_b->float_segment+(FLOAT_WIDTH)Num_b->len)?Num_a->float_segment+Num_a->len:Num_b->float_segment+Num_b->len;
     FLOAT_WIDTH min=Num_a->float_segment<Num_b->float_segment?Num_a->float_segment:Num_b->float_segment;
     if((__int128_t)max-min+1>MALLOC_MAX)
     {
-        printf("位数过多，无法malloc\n");
+        printf("Excessive number of digits, can't malloc\n");
         exit(1);
     }
     NUM_WIDTH *const result=Num_result->num=(NUM_WIDTH *)calloc(max-min+1,sizeof(NUM_WIDTH));
     if(result==NULL)
     {
-        printf("内存不足\n");
+        printf("Out of memory!\n");
         exit(1);
     }
     Num_result->float_segment=min;
@@ -268,13 +264,13 @@ inline void chu(Num const * const Num_a,Num const *const Num_b,const LEN baoliu,
     LEN const cishu=(baoliu-1)/WEI+2;
     if(cishu>MALLOC_MAX/sizeof(NUM_WIDTH))
     {
-        printf("结果位数过多，无法malloc\n");
+        printf("Excessive number of digits, can't malloc\n");
         exit(1);
     }
     NUM_WIDTH *const result=Num_result->num=(NUM_WIDTH *)malloc(sizeof(NUM_WIDTH)*cishu);
     if(result==NULL)
     {
-        printf("内存不足！！\n");
+        printf("Out of memory!\n");
         exit(1);
     }
     NUM_WIDTH *fake_result=result+cishu;
@@ -282,7 +278,7 @@ inline void chu(Num const * const Num_a,Num const *const Num_b,const LEN baoliu,
     LEN len_beichushu;
     if((__int128_t)len_chushu+cishu>(__int128_t)LEN_MAX)
     {
-        printf("结果位数过多\n");
+        printf("The result excessives number of digits\n");
         exit(1);
     }
     //看第一个数字是否有效 同时准备好被除数
@@ -321,13 +317,13 @@ inline void chu(Num const * const Num_a,Num const *const Num_b,const LEN baoliu,
     }
     if(len_beichushu>MALLOC_MAX/sizeof(NUM_WIDTH))
     {
-        printf("结果位数过多\n");
+        printf("The result excessives number of digits\n");
         exit(1);
     }
     NUM_WIDTH *const beichushu=(NUM_WIDTH *)malloc(sizeof(NUM_WIDTH)*len_beichushu);
     if(beichushu==NULL)
     {
-        printf("内存不足！！\n");
+        printf("Out of memory!\n");
         exit(1);
     }
     if(len_beichushu>Num_a->len)
@@ -461,13 +457,13 @@ inline void chu(Num const * const Num_a,Num const *const Num_b,const LEN baoliu,
     //对于除数位数>=3的情况
     if(len_chushu>MALLOC_MAX/sizeof(NUM_WIDTH)-1)
     {
-        printf("位数太多，无法malloc\n");
+        printf("The result excessives number of digits, can't malloc\n");
         exit(1);
     }
     NUM_WIDTH *temp_chushu=(NUM_WIDTH *)malloc((len_chushu+1)*sizeof(NUM_WIDTH));
     if(temp_chushu==NULL)
     {
-        printf("内存不足\n");
+        printf("Out of memory!");
         exit(1);
     }
     NUM_WIDTH chushu_zuigaoliangwei=*chushu_high * (NUM_WIDTH)A_E_B(1,WEI)+*(chushu_high-1);
@@ -564,19 +560,19 @@ inline void cheng(Num const *const Num_a,Num const *const Num_b,Num *const Num_r
     }
     if((__int128_t)Num_a->len+Num_b->len>LEN_MAX)
     {
-        printf("结果位数过多\n");
+        printf("The result excessives number of digits\n");
         exit(1);
     }
     LEN len_result=Num_a->len+Num_b->len;
     if(len_result>MALLOC_MAX/sizeof(NUM_WIDTH))
     {
-        printf("结果位数过多，无法malloc\n");
+        printf("The result excessives number of digits, can't malloc\n");
         exit(1);
     }
     NUM_WIDTH* temp_result=Num_result->num=(NUM_WIDTH *)calloc(len_result,sizeof(NUM_WIDTH));
     if(temp_result==NULL)
     {
-        printf("内存不足\n");
+        printf("Out of memory!");
         exit(1);
     }
 
@@ -597,7 +593,7 @@ inline void cheng(Num const *const Num_a,Num const *const Num_b,Num *const Num_r
     NUM_WIDTH jishu=(NUM_WIDTH)A_E_B(1,WEI)-1; //循环次数：(NUM_WIDTH)A_E_B(1,WEI)
     if((__int128_t)Num_a->len+(NUM_WIDTH)A_E_B(1,WEI)>LEN_MAX)
     {
-        printf("位数过多\n");
+        printf("Excessive number of digits!\n");
         exit(1);
     }
     const LEN len_beichengshu_jia_xunhuancishu=Num_a->len+(NUM_WIDTH)A_E_B(1,WEI);
@@ -681,34 +677,34 @@ void scan(Num *a,Num *b,int8_t *fuhao,LEN *baoliu)
 {
     do
     {
-        printf("input (+ - * /):\n");
+        printf("Input operator (+ - * /):\n");
     }
     while( (*fuhao=getchar())=='\n' || (getchar()!='\n'&&(xi(),1)) || !( (*fuhao=='+' && (*fuhao=0,1) ) || (*fuhao=='-' && (*fuhao=1,1) )|| (*fuhao=='*' && (*fuhao=2,1) )|| (*fuhao=='/' && (*fuhao=3,1) ) ) );
     if(*fuhao==3)
     {
-        printf("please input need to keep how many effect nums:\n");
-        while( ( (scanf("%llu",baoliu)!=1 || getchar()!='\n') && (xi(),1))|| ( *baoliu==0 && (printf("please input > 0!\n"),1) ))
+        printf("Please enter how many significant digits you want to keep:\n");
+        while( ( (scanf("%llu",baoliu)!=1 || getchar()!='\n') && (xi(),1))|| ( *baoliu==0 && (printf("Please enter a number > 0!\n"),1) ))
         {
-            printf("please input need to keep how many effect nums:\n");
+            printf("Please enter how many significant digits you want to keep:\n");
         }
     }
     LEN x;
-    printf("input max wei (no - and .):\n");
-    printf("For example: -123 is 3 and 3.5685 is 5, then max is 5\n");
+    printf("Please enter the maximum significant number of digits:\n");
+    printf("For example: -123 is 3 and 3.5685 is 5, then enter 5\n");
     while(scanf("%llu",&x)!=1||getchar()!='\n')
     {
         xi();
-        printf("input max wei (no - and .):\n");
+        printf("Please enter the maximum significant number of digits:\n");
     }
     if(x>MALLOC_MAX-2)
     {
-        printf("位数过多，无法malloc\n");
+        printf("Excessive number of digits, can't malloc\n");
         exit(1);
     }
     char *temp_num=(char *)malloc(x+2);
     if(temp_num==NULL)
     {
-        printf("内存不足！！\n");
+        printf("Out of memory!\n");
         exit(1);
     }
     char temp;
@@ -716,14 +712,14 @@ void scan(Num *a,Num *b,int8_t *fuhao,LEN *baoliu)
     sprintf(temp_for_scanf,"%%%llu[0-9.]",x+1);
     do
     {
-        printf("first num(can has nums, ., -, +):\n");
+        printf("Input first num(can include digits, ., -, +):\n");
     }
     while( (((temp=getchar())=='-' && (a->is_negative=1,1)) || (temp=='+' && (a->is_negative=0,1)) || (a->is_negative=0,ungetc(temp,stdin),1) ) &&
             ( (scanf(temp_for_scanf,temp_num)==1 && check(temp_num) )? (xi(),0) : (xi(),1) ) );
     string_to_Num(temp_num,a,*fuhao);
     do
     {
-        printf("input secnod:\n");
+        printf("input the secnod:\n");
     }
     while( (((temp=getchar())=='-' && (b->is_negative=1,1)) || (temp=='+' && (a->is_negative=0,1)) || (b->is_negative=0,ungetc(temp,stdin),1) ) &&
             ( (scanf(temp_for_scanf,temp_num)==1 && check(temp_num) )? (xi(),0) : (xi(),1) ) );
@@ -1044,5 +1040,7 @@ inline void xi()
 
 void exit(int)
 {
-    abort();
+    printf("Program exit!");
+    while (true) {}
+    __builtin_unreachable();
 }
