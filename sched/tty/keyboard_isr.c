@@ -217,49 +217,37 @@ static const uint16_t ps2_set1_map2[UINT8_MAX] = {
     [0x80 + 0x53] = DEL << 1,
 };
 
-static int get_scan_code(uint8_t *const scan_code)
-{
-    if ((inb(0x64) & 1) == 0)
-        return -1;
-    *scan_code = inb(0x60);
-    return 0;
-}
-
 static inline __attribute__((always_inline, no_caller_saved_registers)) void
 keyboard_isr_wrap(void *rsp)
 {
-    uint8_t scan_code;
-    if (get_scan_code(&scan_code) != 0)
-        goto label_abort;
-
+    uint8_t scan_code = inb(0x60);
     uint16_t key_code;
     if (scan_code == 0xE0) {
-        if (get_scan_code(&scan_code) != 0)
-            goto label_abort;
+        scan_code = inb(0x60);
         if (scan_code == 0x2A) {
-            if (get_scan_code(&scan_code) != 0 || scan_code != 0xE0)
+            if (inb(0x60) != 0xE0)
                 goto label_abort;
-            if (get_scan_code(&scan_code) != 0 || scan_code != 0x37)
+            if (inb(0x60) != 0x37)
                 goto label_abort;
             key_code = (PRTSC << 1) | 1;
         } else if (scan_code == 0xB7) {
-            if (get_scan_code(&scan_code) != 0 || scan_code != 0xE0)
+            if (inb(0x60) != 0xE0)
                 goto label_abort;
-            if (get_scan_code(&scan_code) != 0 || scan_code != 0xAA)
+            if (inb(0x60) != 0xAA)
                 goto label_abort;
             key_code = PRTSC << 1;
         } else
             key_code = ps2_set1_map2[scan_code];
     } else if (scan_code == 0xE1) {
-        if (get_scan_code(&scan_code) != 0 || scan_code != 0x1D)
+        if (inb(0x60) != 0x1D)
             goto label_abort;
-        if (get_scan_code(&scan_code) != 0 || scan_code != 0x45)
+        if (inb(0x60) != 0x45)
             goto label_abort;
-        if (get_scan_code(&scan_code) != 0 || scan_code != 0xE1)
+        if (inb(0x60) != 0xE1)
             goto label_abort;
-        if (get_scan_code(&scan_code) != 0 || scan_code != 0x9D)
+        if (inb(0x60) != 0x9D)
             goto label_abort;
-        if (get_scan_code(&scan_code) != 0 || scan_code != 0xC5)
+        if (inb(0x60) != 0xC5)
             goto label_abort;
         key_code = (PAUSE << 1) | 1;
     } else
@@ -268,15 +256,14 @@ keyboard_isr_wrap(void *rsp)
     if ((inb(0x64) & 1) != 0)
         goto label_abort;
     if (key_code == 0)
-        goto label_abort;
+        goto label_return;
 
     uint32_t temp_used = atomic_load_explicit(&keyboard_buf_used, memory_order_relaxed);
     while (true) {
         if (temp_used == KEYBOARD_BUF_SIZE)
-            return;
+            goto label_return;
         if (atomic_compare_exchange_strong_explicit(&keyboard_buf_used, &temp_used, temp_used + 1, memory_order_acquire, memory_order_relaxed))
             break;
-        __asm__ volatile ("pause");
     }
     struct Thread *current_thread = NULL;
     struct Thread *temp_keyboard_sleeping_thread = NULL;
@@ -301,8 +288,7 @@ keyboard_isr_wrap(void *rsp)
     atomic_store_explicit(&keyboard_buf[temp_i], key_code, memory_order_relaxed);
     if (temp_keyboard_sleeping_thread == NULL || current_thread != NULL) {
         atomic_signal_fence(memory_order_release);
-        wrmsr_volatile_seq_interrupt(0x80b, 0);
-        return;
+        goto label_return;
     } else {
         __asm__ volatile (
                 "movq	%%gs:8, %%rsi\n\t"
@@ -312,6 +298,10 @@ keyboard_isr_wrap(void *rsp)
                 :);
         __builtin_unreachable();
     }
+
+label_return:
+    wrmsr_volatile_seq_interrupt(0x80b, 0);
+    return;
 
 label_abort:
     __asm__ volatile ("jmp abort");
