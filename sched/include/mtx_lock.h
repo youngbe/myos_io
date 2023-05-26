@@ -3,16 +3,11 @@
 #include <threads.h>
 #include "sched-internal.h"
 
-#include <assert.h>
 #include <stdatomic.h>
 
-static inline int mtx_trylockx(mtx_t*const mtx, const thrd_t current_thrd)
+static inline int mtx_trylockx(struct Mutex *const mutex, const struct Thread *const current_thread, const bool is_sti)
 {
-    thrd_t mtx_owner = NULL;
-    if (atomic_compare_exchange_strong_explicit(&mtx->owner, &mtx_owner, current_thrd, memory_order_acquire, memory_order_relaxed)) {
-        assert(mtx->count <= 1);
-        return thrd_success;
-    }
+    const struct Thread *const current_owner = al_head(&mutex->threads);
     if (mtx_owner == current_thrd) {
         if (mtx->count == 0 || mtx->count == SIZE_MAX)
             return thrd_error;
@@ -22,6 +17,9 @@ static inline int mtx_trylockx(mtx_t*const mtx, const thrd_t current_thrd)
             return thrd_success;
         }
     }
-    else
-        return thrd_busy;
+    else if (current_owner == NULL) {
+        if (al_append_empty(&mutex->threads, &current_thread->default_al_node) == 0)
+            return thrd_success;
+    }
+    return thrd_busy;
 }
