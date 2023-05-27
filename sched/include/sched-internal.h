@@ -30,6 +30,7 @@ struct Proc
 struct Thread
 {
     alignas(16) al_node_t al_node;
+    void* temp0;
     // 线程切换协议：
     // 在cli的情况下，先设置rsp，然后jmp return_hook
     // 沉睡的线程rsp以下128字节的区域可以被临时使用
@@ -44,7 +45,6 @@ struct Thread
     bool is_killed;
     int __errno;
     mi_heap_t* _mi_heap_default;
-    void* temp0;
     uint8_t stack[0x200000 - 64];
 };
 // make sure can use malloc
@@ -103,30 +103,43 @@ struct Spin_Mutex_Member;
 typedef struct Spin_Mutex_Member *spin_mtx_t;
 
 // extern 这两个变量因为需要被汇编函数使用
-extern struct Thread *schedulable_threads;
+extern al_index_t schedulable_threads;
 extern spin_mtx_t schedulable_threads_lock;
 // 在 schedulable_threads 中的线程数量
-extern volatile _Atomic(ssize_t) schedulable_threads_num;
+extern volatile atomic_size_t schedulable_threads_num;
 // 不是刚运行换下来的被调度的线程数量
 extern volatile _Atomic(ssize_t) old_schedulable_threads_num;
 extern volatile atomic_size_t idle_cores_num;
 
 extern struct Thread main_thread;
 
-void __attribute__((noinline)) set_thread_schedulable(struct Thread *new_thread, uint32_t is_sti, struct Spin_Mutex_Member *p_spin_mutex_member);
+void __attribute__((noinline)) set_thread_schedulable(struct Thread *new_thread, bool is_sti);
+/*
 void __attribute__((noinline)) set_threads_schedulable(struct Thread *new_threads, size_t num, uint32_t is_sti, struct Spin_Mutex_Member *p_spin_mutex_member);
 
 __attribute__((noinline, no_caller_saved_registers)) void
 set_thread_schedulable_interrupt(struct Thread *new_thread, struct Spin_Mutex_Member *p_spin_mutex_member);
-
+*/
 
 static inline thrd_t thrd_current_inline(void)
 {
     thrd_t current_thread;
     __asm__ volatile(
             "movq   %%gs:0, %0"
-            :"=r"(current_thread)
+            :"=r"(current_thread), "+m"(__not_exist_global_sym_for_asm_seq)
             :
             :);
     return current_thread;
+}
+
+static inline bool get_interrupt_status(void)
+{
+    uint64_t rflags;
+    __asm__ volatile (
+            "pushfq\n\t"
+            "popq   %0"
+            :"=r"(rflags), "+m"(__not_exist_global_sym_for_asm_seq)
+            :
+            :);
+    return rflags & 512;
 }
