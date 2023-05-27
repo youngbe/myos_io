@@ -1,5 +1,6 @@
 	.text
 	.file	"mtx_lock_c.c"
+	.section	.text.mtx_lock,"ax",@progbits
 	.globl	mtx_lock                        # -- Begin function mtx_lock
 	.p2align	4, 0x90
 	.type	mtx_lock,@function
@@ -11,7 +12,7 @@ mtx_lock:                               # @mtx_lock
 	movq	%gs:0, %rcx
 	#NO_APP
 	movq	(%rdi), %rax
-	leaq	-56(%rax), %rdx
+	leaq	-8(%rax), %rdx
 	testq	%rax, %rax
 	cmoveq	%rax, %rdx
 	cmpq	%rcx, %rdx
@@ -24,7 +25,7 @@ mtx_lock:                               # @mtx_lock
 	testq	%rax, %rax
 	jne	.LBB0_14
 # %bb.4:
-	movq	$0, 56(%rcx)
+	movq	$0, 8(%rcx)
 	testl	$512, %edx                      # imm = 0x200
 	je	.LBB0_6
 # %bb.5:
@@ -56,7 +57,7 @@ mtx_lock:                               # @mtx_lock
 	xorl	%eax, %eax
 	retq
 .LBB0_8:
-	leaq	56(%rcx), %r8
+	leaq	8(%rcx), %r8
 	xorl	%esi, %esi
 	xorl	%eax, %eax
 	lock		cmpxchgq	%r8, 8(%rdi)
@@ -84,7 +85,7 @@ mtx_lock:                               # @mtx_lock
 	testb	%sil, %sil
 	jne	.LBB0_13
 .LBB0_14:
-	movq	32(%rcx), %rsi
+	movq	40(%rcx), %rsi
 	movq	%rsi, %rax
 	andq	$-2, %rax
 	testb	$1, %sil
@@ -125,14 +126,14 @@ mtx_lock:                               # @mtx_lock
 	pushq	%r8
 	#NO_APP
 	#APP
-	movq	%rsp, 8(%rcx)
+	movq	%rsp, 16(%rcx)
 	#NO_APP
 	leaq	.Ltmp0(%rip), %r8
-	movq	%r8, 16(%rcx)
+	movq	%r8, 24(%rcx)
 	#MEMBARRIER
 	movq	%rcx, %r8
-	addq	$56, %r8
-	movq	$0, 56(%rcx)
+	addq	$8, %r8
+	movq	$0, 8(%rcx)
 	movq	%r8, %rcx
 	xchgq	%rcx, 8(%rdi)
 	testq	%rcx, %rcx
@@ -187,6 +188,7 @@ mtx_lock:                               # @mtx_lock
 	popq	%rbp
 	#NO_APP
 	xorl	%eax, %eax
+	vzeroupper
 	retq
 .Lfunc_end0:
 	.size	mtx_lock, .Lfunc_end0-mtx_lock

@@ -2,7 +2,7 @@
 
 #include "myos_sched.h"
 
-#include <al_list2.h>
+#include <al_list.h>
 
 #include <threads.h>
 #include <assert.h>

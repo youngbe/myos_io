@@ -1,12 +1,7 @@
-#include <threads.h>
-
+#include "threads.h"
 #include "sched-internal.h"
-#include <io.h>
-
-#include <utlist.h>
-
+#include <stdint.h>
 #include <stdatomic.h>
-#include <stdlib.h>
 
 extern struct Core_Data kernel_gs_base;
 int mtx_lock(struct Mutex *const mutex)

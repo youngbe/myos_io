@@ -8,6 +8,7 @@
 
 
 // API 列表：
+// al_index_init：初始化index
 // al_head：获取第一个元素
 // al_append: 在末尾添加
 // al_appends：在末尾添加一个链表
@@ -28,6 +29,11 @@ typedef struct Atomic_List_Index
     _Atomic(al_node_t *) end;
 } al_index_t;
 
+#define AL_INDEX_INIT_VAL {NULL, NULL}
+
+
+// al_index_init: 初始化index
+static inline void al_index_init(al_index_t *index);
 
 
 // al_head:获取当前链表第一个元素
@@ -79,6 +85,11 @@ static inline struct RET_al_clear al_clear2(al_index_t *index);
 
 
 
+static inline void al_index_init(struct Atomic_List_Index *const index)
+{
+    *(void **)&index->head = NULL;
+    *(void **)&index->end = NULL;
+}
 
 inline _Atomic(void *) *al_head(const struct Atomic_List_Index *const index)
 {
@@ -147,7 +158,7 @@ al_append_empty_inline(struct Atomic_List_Index *const index, _Atomic(void *) *c
     return ret;
 }
 
-inline struct RET_al_delete_front al_delete_front(struct Atomic_List_Index *const index);
+inline struct RET_al_delete_front al_delete_front(struct Atomic_List_Index *const index)
 {
     struct RET_al_delete_front ret;
     _Atomic(void *)* end = atomic_load_explicit(&index->end, memory_order_relaxed);
@@ -174,7 +185,7 @@ label2:;
     return ret;
 }
 
-inline struct RET_al_delete_front al_delete_front2(struct Atomic_List_Index *const index);
+inline struct RET_al_delete_front al_delete_front2(struct Atomic_List_Index *const index)
 {
     struct RET_al_delete_front ret;
     _Atomic(void *)* end = atomic_load_explicit(&index->end, memory_order_relaxed);
