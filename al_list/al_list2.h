@@ -39,13 +39,13 @@ static inline al_node_t *al_head(const al_index_t *index);
 // 返回值：0：原链表为空
 // 1：原链表不为空
 __attribute__((noinline)) int
-al_append(al_index_t *list, al_node_t *element, bool is_sti);
+al_append(al_index_t *index, al_node_t *element, bool is_sti);
 
 static inline __attribute__((always_inline)) int
-al_append_inline(al_t *list, al_el_t *element, bool is_sti);
+al_append_inline(al_index_t *index, al_node_t *element, bool is_sti);
 
 __attribute__((noinline)) int
-al_appends(al_t *list, al_el_t *head, al_el_t *end, bool is_sti);
+al_appends(al_index_t *index, al_node_t *head, al_node_t *end, bool is_sti);
 
 static inline __attribute__((always_inline)) int
 al_append_empty_inline(al_index_t *index, al_node_t *node, bool is_sti);
@@ -56,20 +56,20 @@ al_append_empty(al_index_t *index, al_node_t *node, bool is_sti);
 
 // al_delete_front: 获取并删除链表第一个元素
 // 如果返回NULL，说明链表为空
-static inline al_el_t *al_delete_front(al_t *list);
-static inline al_el_t *al_delete_front2(al_t *list);
+static inline al_node_t *al_delete_front(al_index_t *index);
+static inline al_node_t *al_delete_front2(al_index_t *index);
 
 
 
 // al_clear: 清空链表并返回原链表
 struct RET_al_clear
 {
-    al_el_t *head;
-    al_el_t *end;
+    al_node_t *head;
+    al_node_t *end;
 };
 // 如果返回的end值为NULL，说明原链表为空，此时head值未定义
-static inline struct RET_al_clear al_clear(al_t *list);
-static inline struct RET_al_clear al_clear2(al_t *list);
+static inline struct RET_al_clear al_clear(al_index_t *index);
+static inline struct RET_al_clear al_clear2(al_index_t *index);
 
 
 
@@ -78,7 +78,7 @@ static inline struct RET_al_clear al_clear2(al_t *list);
 
 inline _Atomic(void *) *al_head(const struct Atomic_List_Index *const index)
 {
-    return atomic_load_explicit(&index->head);
+    return atomic_load_explicit(&index->head, memory_order_relaxed);
 }
 
 
@@ -96,7 +96,7 @@ al_append_inline(struct Atomic_List_Index *const index, _Atomic(void *)*const no
                 :);
     }
     // memory_order_release: let *node write visible
-    _Atomic(void *)*const old_end = atomic_exchange_explicit(&index->end, el, memory_order_release);
+    _Atomic(void *)*const old_end = atomic_exchange_explicit(&index->end, node, memory_order_release);
     if (old_end == NULL) {
         atomic_store_explicit(&index->head, node, memory_order_relaxed);
         ret = 0;
@@ -115,7 +115,38 @@ al_append_inline(struct Atomic_List_Index *const index, _Atomic(void *)*const no
     return ret;
 }
 
+inline __attribute__((always_inline)) int
+al_append_empty_inline(struct Atomic_List_Index *const index, _Atomic(void *) *const node, const bool is_sti)
+{
+    int ret;
+    // *node = NULL , not atomic write
+    *(void **)node = NULL;
+    if (is_sti) {
+        atomic_signal_fence(memory_order_release);
+        __asm__ ("cli"
+                :"+m"(__not_exist_global_sym_for_asm_seq)
+                :
+                :);
+        atomic_signal_fence(memory_order_acquire);
+    }
+    _Atomic(void *)* end = atomic_load_explicit(&index->end, memory_order_relaxed);
+    // memory_order_release: let *node = NULL visible
+    if (end == NULL && atomic_compare_exchange_strong_explicit(&index->end, &end, node, memory_order_release, memory_order_relaxed)) {
+        atomic_store_explicit(&index->head, node, memory_order_relaxed);
+        ret = 0;
+    } else
+        ret = 1;
+    if (is_sti) {
+        atomic_signal_fence(memory_order_release);
+        __asm__ ("sti"
+                :"+m"(__not_exist_global_sym_for_asm_seq)
+                :
+                :);
+    }
+    return ret;
+}
 
+/*
 inline _Atomic(void *)* al_delete_front(struct Atomic_List *const list)
 {
     _Atomic(void *)* end = atomic_load_explicit(&list->end, memory_order_relaxed);
@@ -154,4 +185,4 @@ inline struct RET_al_clear al_clear(struct Atomic_List *const list)
     ret.end = atomic_exchange_explicit(&list->end, NULL, memory_order_release);
     return ret;
 }
-
+*/

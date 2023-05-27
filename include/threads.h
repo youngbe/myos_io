@@ -1,5 +1,7 @@
 #pragma once
 
+#include <al_list2.h>
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -8,6 +10,7 @@ typedef struct Thread* thrd_t;
 struct Spin_Mutex_Member;
 typedef struct Spin_Mutex_Member *spin_mtx_t;
 
+/*
 struct Mutex
 {
     // 可以原子地存/取owner，实现无锁trylock
@@ -20,6 +23,13 @@ struct Mutex
     // 1. 持有这把自旋锁时，才能对blocked_threads进行读写
     // 2. 如果owner是本线程（说明这个Mutex属于本线程），只有在持有这把自旋锁的状态下，才能将owner改为NULL。（这意味着，如果一个线程抢到了这个自旋锁，发现这个Mutex的owner不是本线程也不是NULL，则在放开这个自旋锁前，owner不会变成NULL（但有可能别成其他线程的owner））
     spin_mtx_t spin_mtx;
+};
+*/
+
+struct Mutex
+{
+    al_index_t threads;
+    size_t count;
 };
 typedef struct Mutex mtx_t;
 

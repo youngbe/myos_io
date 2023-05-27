@@ -2,6 +2,8 @@
 
 #include "myos_sched.h"
 
+#include <al_list2.h>
+
 #include <threads.h>
 #include <assert.h>
 #include <stdint.h>
@@ -27,8 +29,7 @@ struct Proc
 
 struct Thread
 {
-    alignas(16) struct Thread* next;
-    struct Thread *prev;
+    alignas(16) al_node_t al_node;
     // 线程切换协议：
     // 在cli的情况下，先设置rsp，然后jmp return_hook
     // 沉睡的线程rsp以下128字节的区域可以被临时使用
@@ -43,8 +44,8 @@ struct Thread
     bool is_killed;
     int __errno;
     mi_heap_t* _mi_heap_default;
-    uint64_t temp0;
-    uint8_t stack[0x200000 - 72];
+    void* temp0;
+    uint8_t stack[0x200000 - 64];
 };
 // make sure can use malloc
 static_assert(alignof(struct Thread) == 16);
@@ -117,3 +118,15 @@ void __attribute__((noinline)) set_threads_schedulable(struct Thread *new_thread
 
 __attribute__((noinline, no_caller_saved_registers)) void
 set_thread_schedulable_interrupt(struct Thread *new_thread, struct Spin_Mutex_Member *p_spin_mutex_member);
+
+
+static inline thrd_t thrd_current_inline(void)
+{
+    thrd_t current_thread;
+    __asm__ volatile(
+            "movq   %%gs:0, %0"
+            :"=r"(current_thread)
+            :
+            :);
+    return current_thread;
+}

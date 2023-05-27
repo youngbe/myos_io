@@ -1,10 +1,6 @@
 #include <threads.h>
 
 #include "sched-internal.h"
-#include "mtx_lock.h"
-#include "mcs_spin.h"
-#include "thrd_current.h"
-
 #include <io.h>
 
 #include <utlist.h>
@@ -13,13 +9,38 @@
 #include <stdlib.h>
 
 extern struct Core_Data kernel_gs_base;
-int mtx_lock(mtx_t*const mtx)
+int mtx_lock(struct Mutex *const mutex)
 {
-    const thrd_t current_thread = thrd_currentx();
-    {
-        const int ret = mtx_trylockx(mtx, current_thread);
-        if (ret != thrd_busy)
-            return ret;
+    struct Thread *const current_thread = thrd_current_inline();
+    const struct Thread *const current_owner = ({
+            void *temp = al_head(&mutex->threads);
+            if (temp != NULL)
+                temp = list_entry(temp, struct Thread, temp0);
+            temp;
+            });
+    if (current_owner == current_thread) {
+        if (mutex->count == 0 || mutex->count == SIZE_MAX)
+            return thrd_error;
+        ++mutex->count;
+        atomic_signal_fence(memory_order_acquire);
+        return thrd_success;
+    }
+    const uint64_t rflags = ({
+            uint64_t temp;
+            __asm__ volatile (
+                    "pushfq\n\t"
+                    "popq   %0"
+                    :"=r"(temp), "+m"(__not_exist_global_sym_for_asm_seq)
+                    :
+                    :);
+            temp;
+            });
+    const bool is_sti = rflags & 512;
+    if (current_owner == NULL) {
+        if (al_append_empty_inline(&mutex->threads, (_Atomic(void *) *)&current_thread->temp0, is_sti) == 0) {
+            atomic_signal_fence(memory_order_acquire);
+            return thrd_success;
+        }
     }
 
 
@@ -34,10 +55,7 @@ int mtx_lock(mtx_t*const mtx)
     // 这一步也是切换至空线程的步骤之一
     if (!current_is_kernel)
         atomic_fetch_add_explicit(&current_proc->threads_num, 1, memory_order_relaxed);
-    atomic_signal_fence(memory_order_release);
-    uint64_t rflags;
-    struct Spin_Mutex_Member *p_spin_mutex_member;
-    // 保存上下文 && spin_mutex_init && cli
+    // 保存上下文 && cli
     {
         uint64_t temp;
         __asm__ volatile (
@@ -50,67 +68,61 @@ int mtx_lock(mtx_t*const mtx)
                 "subq       $16, %%rsp\n\t"
                 "fstcw      8(%%rsp)\n\t"
                 "stmxcsr    (%%rsp)\n\t"
-                "rdfsbase   %0\n\t"
-                "pushq      %0\n\t"
-                "pushfq\n\t"
-                "movq       (%%rsp), %0\n\t"
-                "subq       $24, %%rsp"
-                :"=r"(rflags), "+m"(__not_exist_global_sym_for_asm_seq)
+                "rdfsbase   %[temp]\n\t"
+                "pushq      %[temp]"
+                :[temp]"=r"(temp), "+m"(__not_exist_global_sym_for_asm_seq)
                 :
                 :"cc");
         __asm__ volatile (
-                "movq   %%rsp, %0"
-                :"=r"(p_spin_mutex_member), "+m"(__not_exist_global_sym_for_asm_seq)
-                :
+                "pushq  %1"
+                :"+m"(__not_exist_global_sym_for_asm_seq)
+                :"r"(rflags)
                 :);
-        spin_mutex_member_init(p_spin_mutex_member);
-        atomic_signal_fence(memory_order_release);
+        if (is_sti) {
+            atomic_signal_fence(memory_order_release);
+            __asm__ volatile (
+                    "cli"
+                    :"+m"(__not_exist_global_sym_for_asm_seq)
+                    :
+                    :);
+            atomic_signal_fence(memory_order_acquire);
+        }
         __asm__ volatile (
-                "cli\n\t"
                 "swapgs\n\t"
-                "rdgsbase   %0\n\t"
+                "rdgsbase   %[temp]\n\t"
                 "swapgs\n\t"
-                "movq       %0, 16(%%rsp)"
-                :"=r"(temp), "+m"(__not_exist_global_sym_for_asm_seq)
+                "pushq      %[temp]"
+                :[temp]"=r"(temp), "+m"(__not_exist_global_sym_for_asm_seq)
                 :
                 :);
-        atomic_signal_fence(memory_order_acquire);
+        __asm__ volatile (
+                "movq   %%rsp, %0"
+                :"=m"(current_thread->rsp), "+m"(__not_exist_global_sym_for_asm_seq)
+                :
+                :);
     }
-    const bool is_sti = rflags & 512;
-    current_thread->rsp = (void *)((uintptr_t)p_spin_mutex_member + 16);
     current_thread->return_hook = &&label_wakeup;
 
 
-    bool flag = false;
-    thrd_t mtx_owner = NULL;
-    atomic_signal_fence(memory_order_acq_rel);
-    spin_lock(&mtx->spin_mtx, p_spin_mutex_member);
-    {
-        if (!atomic_compare_exchange_strong_explicit(&mtx->owner, &mtx_owner, current_thread, memory_order_relaxed, memory_order_relaxed)) {
-            //if (mtx_owner == NULL)
-            //    __builtin_unreachable();
-            struct Thread *fake_blocked_threads = mtx->blocked_threads;
-            DL_APPEND(fake_blocked_threads, current_thread);
-            mtx->blocked_threads = fake_blocked_threads;
-        } else
-            flag = true;
-        //else if (mtx_owner != NULL)
-        //    __builtin_unreachable();
-    }
-    spin_unlock(&mtx->spin_mtx, p_spin_mutex_member);
-    atomic_signal_fence(memory_order_acq_rel);
-    if (flag) {
-        if (is_sti)
-            __asm__ volatile ("sti":"+m"(__not_exist_global_sym_for_asm_seq)::);
-        atomic_signal_fence(memory_order_acquire);
+    atomic_thread_fence(memory_order_release);
+    if (al_append_inline(&mutex->threads, (al_node_t *)&current_thread->temp0, false) == 0) {
+        // 成为了owner
+        if (is_sti) {
+            __asm__ volatile (
+                    "sti"
+                    :"+m"(__not_exist_global_sym_for_asm_seq)
+                    :
+                    :);
+            atomic_signal_fence(memory_order_acquire);
+        }
         // 还原临时增加的虚拟线程数
         // 这里不会导致线程数减为0，因为本线程还在运行
         if (!current_is_kernel)
             atomic_fetch_sub_explicit(&current_proc->threads_num, 1, memory_order_relaxed);
-        __asm__ volatile ("addq  $104, %%rsp":"+m"(__not_exist_global_sym_for_asm_seq)::"cc");
+        __asm__ volatile ("addq  $88, %%rsp":"+m"(__not_exist_global_sym_for_asm_seq)::"cc");
         return thrd_success;
     }
-
+    // 从这里开始栈不可用
 
     __asm__ volatile goto (
             "rdgsbase   %%rsp\n\t"
