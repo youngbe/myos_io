@@ -172,7 +172,7 @@ inline struct RET_al_delete_front al_delete_front(struct Atomic_List_Index *cons
         __asm__ volatile ("pause");
     if (ret.head == end) {
         // 链表中仅有一个元素
-        *(void **)index->head = NULL;  // not atomic write
+        *(void **)&index->head = NULL;  // not atomic write
         // memory_order_release: let index->head write visible
         if (!atomic_compare_exchange_strong_explicit(&index->end, &end, NULL, memory_order_release, memory_order_relaxed))
             goto label2;
@@ -182,7 +182,7 @@ label2:;
         // 链表中有多个元素
         while ((ret.next = atomic_load_explicit(ret.head, memory_order_relaxed)) == NULL)
             __asm__ volatile ("pause");
-        *(void **)index->head = ret.next;  // not atomic write
+        *(void **)&index->head = ret.next;  // not atomic write
     }
     return ret;
 }
