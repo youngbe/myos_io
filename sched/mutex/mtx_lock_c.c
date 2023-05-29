@@ -1,5 +1,6 @@
 #include "threads.h"
 #include "sched-internal.h"
+
 #include <stdint.h>
 #include <stdatomic.h>
 
@@ -7,19 +8,8 @@ extern struct Core_Data kernel_gs_base;
 int mtx_lock(struct Mutex *const mutex)
 {
     struct Thread *const current_thread = thrd_current_inline();
-    const struct Thread *const current_owner = ({
-            void *temp = al_head(&mutex->threads);
-            if (temp != NULL)
-                temp = list_entry(temp, struct Thread, temp0);
-            temp;
-            });
-    if (current_owner == current_thread) {
-        if (mutex->count == 0 || mutex->count == SIZE_MAX)
-            return thrd_error;
-        ++mutex->count;
-        atomic_signal_fence(memory_order_acquire);
-        return thrd_success;
-    }
+    __asm__ (""::"r"(&current_thread->temp0):);
+    al_node_init((al_node_t *)&current_thread->temp0);
     const uint64_t rflags = ({
             uint64_t temp;
             __asm__ volatile (
@@ -31,10 +21,26 @@ int mtx_lock(struct Mutex *const mutex)
             temp;
             });
     const bool is_sti = rflags & 512;
-    if (current_owner == NULL) {
-        if (al_append_empty_inline(&mutex->threads, (_Atomic(void *) *)&current_thread->temp0, is_sti) == 0) {
-            atomic_signal_fence(memory_order_acquire);
-            return thrd_success;
+    {
+        if (is_sti)
+            asm ("cli");
+        const al_node_t *const current_node = al_head(&mutex->threads);
+        if (current_node == NULL) {
+            const int ret = al_append_empty_inline(&mutex->threads, (al_node_t *)&current_thread->temp0, false);
+            if (is_sti)
+                asm ("sti");
+            if (ret == 0)
+                return thrd_success;
+        } else {
+            if (is_sti)
+                asm ("sti");
+            //const struct Thread *const current_owner = list_entry((void *)current_node, struct Thread, temp0);
+            if (&current_thread->temp0 == (void *)current_node) {
+                if (mutex->count == 0 || mutex->count == SIZE_MAX)
+                    return thrd_error;
+                ++mutex->count;
+                return thrd_success;
+            }
         }
     }
 
@@ -42,9 +48,9 @@ int mtx_lock(struct Mutex *const mutex)
     struct Proc *current_proc;
     bool current_is_kernel;
     {
-        const uintptr_t temp = (uintptr_t)current_thread->proc;
+        const uintptr_t temp = current_thread->proc;
         current_is_kernel = temp & 1;
-        current_proc = (struct Proc *)(uintptr_t)(temp & -2);
+        current_proc = (struct Proc *)(temp & -2);
     }
     // 增加虚拟线程数以防止页表被释放
     // 这一步也是切换至空线程的步骤之一
@@ -74,13 +80,11 @@ int mtx_lock(struct Mutex *const mutex)
                 :"r"(rflags)
                 :);
         if (is_sti) {
-            atomic_signal_fence(memory_order_release);
             __asm__ volatile (
                     "cli"
                     :"+m"(__not_exist_global_sym_for_asm_seq)
                     :
                     :);
-            atomic_signal_fence(memory_order_acquire);
         }
         __asm__ volatile (
                 "swapgs\n\t"
@@ -99,17 +103,14 @@ int mtx_lock(struct Mutex *const mutex)
     current_thread->return_hook = &&label_wakeup;
 
 
-    atomic_thread_fence(memory_order_release);
     if (al_append_inline(&mutex->threads, (al_node_t *)&current_thread->temp0, false) == 0) {
         // 成为了owner
-        if (is_sti) {
+        if (is_sti)
             __asm__ volatile (
                     "sti"
                     :"+m"(__not_exist_global_sym_for_asm_seq)
                     :
                     :);
-            atomic_signal_fence(memory_order_acquire);
-        }
         // 还原临时增加的虚拟线程数
         // 这里不会导致线程数减为0，因为本线程还在运行
         if (!current_is_kernel)
