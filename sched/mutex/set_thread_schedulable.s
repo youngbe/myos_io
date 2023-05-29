@@ -6,6 +6,7 @@ set_thread_schedulable:                 # @set_thread_schedulable
 	movl	$802851, %eax                   # imm = 0xC4023
 	xorl	%edx, %edx
 	movl	$2096, %ecx                     # imm = 0x830
+    movq    %rdx, (%rdi)
 	movq	%rdi, %rsi
 	leaq	schedulable_threads(%rip), %r8
 	xchgq	%rsi, schedulable_threads+8(%rip)
@@ -14,9 +15,9 @@ set_thread_schedulable:                 # @set_thread_schedulable
 	movq	%rdi, (%r8)
 	lock		incq	schedulable_threads_num(%rip)
     SERIALIZE
-    cmpq    $0, schedulable_threads_num(%rip)
+    cmpq    %rdx, schedulable_threads_num(%rip)
     je  .LBB0_2
-	cmpq	$0, idle_cores_num(%rip)
+	cmpq	%rdx, idle_cores_num(%rip)
 	je	.LBB0_2
 	wrmsr
 .LBB0_2:
@@ -35,6 +36,7 @@ cli_set_thread_schedulable:             # @cli_set_thread_schedulable
 	movl	$802851, %eax                   # imm = 0xC4023
 	xorl	%edx, %edx
 	movl	$2096, %ecx                     # imm = 0x830
+    movq    %rdx, (%rdi)
 	movq	%rdi, %rsi
 	leaq	schedulable_threads(%rip), %r8
     cli
@@ -44,12 +46,12 @@ cli_set_thread_schedulable:             # @cli_set_thread_schedulable
 	movq	%rdi, (%r8)
 	lock		incq	schedulable_threads_num(%rip)
     SERIALIZE
-    cmpq    $0, schedulable_threads_num(%rip)
-    je  .LBB0_2
-	cmpq	$0, idle_cores_num(%rip)
-	je	.LBB0_2
+    cmpq    %rdx, schedulable_threads_num(%rip)
+    je  .LBB0_3
+	cmpq	%rdx, idle_cores_num(%rip)
+	je	.LBB0_3
 	wrmsr
-.LBB0_2:
+.LBB0_3:
 	lock		incq	old_schedulable_threads_num(%rip)
     sti
 	retq

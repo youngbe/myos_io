@@ -41,7 +41,7 @@ struct Thread
     const uint64_t *cr3;
     // 对于内核线程，此值不断变化，有 (proc & 1) == 1 ，(proc & -2) 当前指向虚拟进程
     // 对于普通线程，此值指向所属进程
-    struct Proc *proc;
+    uintptr_t proc;
     bool is_killed;
     int __errno;
     mi_heap_t* _mi_heap_default;
@@ -113,7 +113,7 @@ extern volatile atomic_size_t idle_cores_num;
 
 extern struct Thread main_thread;
 
-void __attribute__((noinline)) set_thread_schedulable(struct Thread *new_thread, bool is_sti);
+void __attribute__((noinline)) set_thread_schedulable(struct Thread *new_thread);
 /*
 void __attribute__((noinline)) set_threads_schedulable(struct Thread *new_threads, size_t num, uint32_t is_sti, struct Spin_Mutex_Member *p_spin_mutex_member);
 
@@ -132,7 +132,7 @@ static inline thrd_t thrd_current_inline(void)
     return current_thread;
 }
 
-static inline bool get_interrupt_status(void)
+static inline bool check_sti(void)
 {
     uint64_t rflags;
     __asm__ volatile (

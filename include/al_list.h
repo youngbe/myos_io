@@ -5,18 +5,23 @@
 
 #include <stdatomic.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 
 // API 列表：
 // al_index_init：初始化index
+// al_node_init：初始化node
 // al_head：获取第一个元素
-// al_append: 在末尾添加
-// al_appends：在末尾添加一个链表
+// al_append: 在末尾添加，调用时中断处于关闭状态
+// cli_al_append: 在末尾添加，调用时中断处于开启状状态
 // al_append_empty：尝试从空链表添加
+// cli_al_append_empty：尝试从空链表添加
 // al_delete_front：获取并删除第一个元素
 // al_clear：获取并删除整个链表
 // al_delete_front2：获取并删除第一个元素
 // al_clear2：获取并删除整个链表
+// al_appends：在末尾添加一个链表
+// al_appends_sti：在末尾添加一个链表
 
 
 // atomic list node
@@ -30,6 +35,7 @@ typedef struct Atomic_List_Index
 } al_index_t;
 
 #define AL_INDEX_INIT_VAL {NULL, NULL}
+#define AL_NODE_INIT_VAL NULL
 
 
 // al_index_init: 初始化index
@@ -45,9 +51,9 @@ static inline al_node_t *al_head(const al_index_t *index);
 // 返回值：0：原链表为空
 // 1：原链表不为空
 __attribute__((noinline)) int
-al_append(al_index_t *index, al_node_t *element, bool is_sti);
+al_append(al_index_t *index, al_node_t *node, bool is_sti);
 static inline __attribute__((always_inline)) int
-al_append_inline(al_index_t *index, al_node_t *element, bool is_sti);
+al_append_inline(al_index_t *index, al_node_t *node, bool is_sti);
 
 __attribute__((noinline)) int
 al_append_empty(al_index_t *index, al_node_t *node, bool is_sti);
@@ -91,6 +97,11 @@ static inline void al_index_init(struct Atomic_List_Index *const index)
     *(void **)&index->end = NULL;
 }
 
+static inline void al_node_init(_Atomic(void *) *const node)
+{
+    *(void **)node = NULL;
+}
+
 inline _Atomic(void *) *al_head(const struct Atomic_List_Index *const index)
 {
     return atomic_load_explicit(&index->head, memory_order_relaxed);
@@ -101,17 +112,14 @@ inline __attribute__((always_inline)) int
 al_append_inline(struct Atomic_List_Index *const index, _Atomic(void *)*const node, const bool is_sti)
 {
     int ret = 0;
-    // *node = NULL , not atomic write
-    *(void **)node = NULL;
     if (is_sti) {
-        atomic_signal_fence(memory_order_release);
-        __asm__ ("cli"
+        __asm__ volatile ("cli"
                 :"+m"(__not_exist_global_sym_for_asm_seq)
                 :
                 :);
     }
     // memory_order_release: let *node write visible
-    _Atomic(void *)*const old_end = atomic_exchange_explicit(&index->end, node, memory_order_release);
+    _Atomic(void *)*const old_end = atomic_exchange_explicit(&index->end, node, memory_order_relaxed);
     if (old_end == NULL)
         atomic_store_explicit(&index->head, node, memory_order_relaxed);
     else {
@@ -119,7 +127,6 @@ al_append_inline(struct Atomic_List_Index *const index, _Atomic(void *)*const no
         ret = 1;
     }
     if (is_sti) {
-        atomic_signal_fence(memory_order_release);
         __asm__ ("sti"
                 :"+m"(__not_exist_global_sym_for_asm_seq)
                 :
@@ -132,24 +139,19 @@ inline __attribute__((always_inline)) int
 al_append_empty_inline(struct Atomic_List_Index *const index, _Atomic(void *) *const node, const bool is_sti)
 {
     int ret = 0;
-    // *node = NULL , not atomic write
-    *(void **)node = NULL;
     if (is_sti) {
-        atomic_signal_fence(memory_order_release);
         __asm__ ("cli"
                 :"+m"(__not_exist_global_sym_for_asm_seq)
                 :
                 :);
-        atomic_signal_fence(memory_order_acquire);
     }
     _Atomic(void *)* end = atomic_load_explicit(&index->end, memory_order_relaxed);
     // memory_order_release: let *node = NULL visible
-    if (end == NULL && atomic_compare_exchange_strong_explicit(&index->end, &end, node, memory_order_release, memory_order_relaxed))
+    if (end == NULL && atomic_compare_exchange_strong_explicit(&index->end, &end, node, memory_order_relaxed, memory_order_relaxed))
         atomic_store_explicit(&index->head, node, memory_order_relaxed);
     else
         ret = 1;
     if (is_sti) {
-        atomic_signal_fence(memory_order_release);
         __asm__ ("sti"
                 :"+m"(__not_exist_global_sym_for_asm_seq)
                 :
