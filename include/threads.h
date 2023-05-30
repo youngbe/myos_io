@@ -11,7 +11,10 @@ typedef struct Thread* thrd_t;
 
 struct Mutex
 {
-    al_index_t threads;
+    _Atomic(struct Thread *) owner;
+    _Atomic(void *) waiters;
+    _Atomic(void *) wait_end;
+    //al_index_t threads;
     size_t count;
 };
 typedef struct Mutex mtx_t;

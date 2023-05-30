@@ -11,16 +11,11 @@ mtx_lock:                               # @mtx_lock
 	#APP
 	movq	%gs:0, %rdx
 	#NO_APP
-	cmpq	%rdx, (%rdi)
+	movq	(%rdi), %rax
+	cmpq	%rax, %rdx
 	je	.LBB0_4
 # %bb.1:
 	movq	%rdx, %rcx
-	leaq	8(%rdi), %r9
-	#APP
-	#NO_APP
-	leaq	16(%rdi), %r8
-	#APP
-	#NO_APP
 	#APP
 	pushfq
 	popq	%rsi
@@ -28,11 +23,13 @@ mtx_lock:                               # @mtx_lock
 	testl	$512, %esi                      # imm = 0x200
 	jne	.LBB0_6
 # %bb.2:
-	cmpq	$0, (%r8)
+	leaq	16(%rdi), %r8
+	cmpq	$0, 16(%rdi)
 	jne	.LBB0_10
 # %bb.3:
+	leaq	8(%rdi), %r9
 	xorl	%eax, %eax
-	lock		cmpxchgq	%r9, (%r8)
+	lock		cmpxchgq	%r9, 16(%rdi)
 	jne	.LBB0_10
 .LBB0_21:
 	movq	%rcx, (%rdi)
@@ -50,7 +47,8 @@ mtx_lock:                               # @mtx_lock
 	#APP
 	cli
 	#NO_APP
-	cmpq	$0, (%r8)
+	leaq	16(%rdi), %r8
+	cmpq	$0, 16(%rdi)
 	je	.LBB0_9
 # %bb.7:
 	#APP
@@ -62,8 +60,9 @@ mtx_lock:                               # @mtx_lock
 	xorl	%eax, %eax
 	retq
 .LBB0_9:
+	leaq	8(%rdi), %r9
 	xorl	%eax, %eax
-	lock		cmpxchgq	%r9, (%r8)
+	lock		cmpxchgq	%r9, 16(%rdi)
 	sete	%al
 	#APP
 	sti

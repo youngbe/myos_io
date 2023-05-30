@@ -1,14 +1,8 @@
-	.text
-	.file	"mtx_trylock_c.c"
 	.section	.text.mtx_trylock,"ax",@progbits
 	.globl	mtx_trylock                     # -- Begin function mtx_trylock
 	.p2align	4, 0x90
 	.type	mtx_trylock,@function
 mtx_trylock:                            # @mtx_trylock
-.Lmtx_trylock$local:
-	.type	.Lmtx_trylock$local,@function
-# %bb.0:
-	#APP
 	movq	%gs:0, %rdx
 	#NO_APP
 	cmpq	%rdx, (%rdi)
@@ -61,12 +55,8 @@ mtx_trylock:                            # @mtx_trylock
 .LBB0_5:
 	xorl	%eax, %eax
 	lock		cmpxchgq	%rsi, 16(%rdi)
-	setne	%al
-	#APP
 	sti
-	#NO_APP
 	movl	$1, %ecx
-	testb	%al, %al
 	jne	.LBB0_10
 .LBB0_8:
 	movq	%rdx, (%rdi)
@@ -74,7 +64,3 @@ mtx_trylock:                            # @mtx_trylock
 	retq
 .Lfunc_end0:
 	.size	mtx_trylock, .Lfunc_end0-mtx_trylock
-	.size	.Lmtx_trylock$local, .Lfunc_end0-mtx_trylock
-                                        # -- End function
-	.ident	"Ubuntu clang version 16.0.0 (1~exp5ubuntu3)"
-	.section	".note.GNU-stack","",@progbits

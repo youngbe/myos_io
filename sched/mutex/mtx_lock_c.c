@@ -8,8 +8,15 @@ extern struct Core_Data kernel_gs_base;
 int mtx_lock(struct Mutex *const mutex)
 {
     struct Thread *const current_thread = thrd_current_inline();
-    __asm__ (""::"r"(&current_thread->temp0):);
-    al_node_init((al_node_t *)&current_thread->temp0);
+    //if (atomic_load_explicit(&mutex->owner, memory_order_relaxed) == current_thread) {
+    if (*(void **)&mutex->owner == current_thread) {
+        if (mutex->count == 0 || mutex->count == SIZE_MAX)
+            return thrd_error;
+        ++mutex->count;
+        return thrd_success;
+    }
+    __asm__ volatile (""::"r"(&mutex->waiters):);
+    __asm__ volatile (""::"r"(&mutex->wait_end):);
     const uint64_t rflags = ({
             uint64_t temp;
             __asm__ volatile (
@@ -24,26 +31,23 @@ int mtx_lock(struct Mutex *const mutex)
     {
         if (is_sti)
             asm ("cli");
-        const al_node_t *const current_node = al_head(&mutex->threads);
-        if (current_node == NULL) {
-            const int ret = al_append_empty_inline(&mutex->threads, (al_node_t *)&current_thread->temp0, false);
+        void *current_wait_end = *(void *volatile *)&mutex->wait_end;
+        //void *current_wait_end = atomic_load_explicit(&mutex->wait_end, memory_order_relaxed);
+        if (current_wait_end == NULL) {
+            const bool success = atomic_compare_exchange_strong_explicit(&mutex->wait_end, &current_wait_end, (void *)&mutex->waiters, memory_order_relaxed, memory_order_relaxed);
             if (is_sti)
                 asm ("sti");
-            if (ret == 0)
-                return thrd_success;
-        } else {
-            if (is_sti)
-                asm ("sti");
-            //const struct Thread *const current_owner = list_entry((void *)current_node, struct Thread, temp0);
-            if (&current_thread->temp0 == (void *)current_node) {
-                if (mutex->count == 0 || mutex->count == SIZE_MAX)
-                    return thrd_error;
-                ++mutex->count;
+            if (success) {
+                atomic_store_explicit(&mutex->owner, (struct Thread *)current_thread, memory_order_relaxed);
                 return thrd_success;
             }
-        }
+        } else if (is_sti)
+            asm ("sti");
     }
 
+
+    void **const node = &current_thread->temp0;
+    *node = NULL;
 
     struct Proc *current_proc;
     bool current_is_kernel;
@@ -103,7 +107,8 @@ int mtx_lock(struct Mutex *const mutex)
     current_thread->return_hook = &&label_wakeup;
 
 
-    if (al_append_inline(&mutex->threads, (al_node_t *)&current_thread->temp0, false) == 0) {
+    void *const last_end = atomic_exchange_explicit(&mutex->wait_end, (void *)node, memory_order_relaxed);
+    if (last_end == NULL) {
         // 成为了owner
         if (is_sti)
             __asm__ volatile (
@@ -111,13 +116,16 @@ int mtx_lock(struct Mutex *const mutex)
                     :"+m"(__not_exist_global_sym_for_asm_seq)
                     :
                     :);
+        __asm__ volatile ("addq  $88, %%rsp":"+m"(__not_exist_global_sym_for_asm_seq)::"cc");
         // 还原临时增加的虚拟线程数
         // 这里不会导致线程数减为0，因为本线程还在运行
         if (!current_is_kernel)
             atomic_fetch_sub_explicit(&current_proc->threads_num, 1, memory_order_relaxed);
-        __asm__ volatile ("addq  $88, %%rsp":"+m"(__not_exist_global_sym_for_asm_seq)::"cc");
+        atomic_store_explicit(&mutex->owner, current_thread, memory_order_relaxed);
         return thrd_success;
     }
+    atomic_store_explicit((_Atomic(void *) *)last_end, node, memory_order_relaxed);
+
     // 从这里开始栈不可用
 
     __asm__ volatile goto (

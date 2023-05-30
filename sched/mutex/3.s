@@ -11,7 +11,8 @@ mtx_lock:                               # @mtx_lock
 	#APP
 	movq	%gs:0, %rdx
 	#NO_APP
-	cmpq	%rdx, (%rdi)
+	movq	(%rdi), %rax
+	cmpq	%rax, %rdx
 	je	.LBB0_4
 # %bb.1:
 	movq	%rdx, %rcx

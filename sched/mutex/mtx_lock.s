@@ -1,14 +1,8 @@
-	.text
-	.file	"mtx_lock_c.c"
 	.section	.text.mtx_lock,"ax",@progbits
 	.globl	mtx_lock                        # -- Begin function mtx_lock
 	.p2align	4, 0x90
 	.type	mtx_lock,@function
 mtx_lock:                               # @mtx_lock
-.Lmtx_lock$local:
-	.type	.Lmtx_lock$local,@function
-# %bb.0:
-	#APP
 	movq	%gs:0, %rdx
 	#NO_APP
 	cmpq	%rdx, (%rdi)
@@ -64,12 +58,8 @@ mtx_lock:                               # @mtx_lock
 .LBB0_9:
 	xorl	%eax, %eax
 	lock		cmpxchgq	%r9, (%r8)
-	sete	%al
-	#APP
 	sti
-	#NO_APP
-	testb	%al, %al
-	jne	.LBB0_21
+	je	.LBB0_21
 .LBB0_10:
 	movq	$0, 8(%rcx)
 	movq	40(%rcx), %r9
@@ -172,7 +162,3 @@ mtx_lock:                               # @mtx_lock
 	retq
 .Lfunc_end0:
 	.size	mtx_lock, .Lfunc_end0-mtx_lock
-	.size	.Lmtx_lock$local, .Lfunc_end0-mtx_lock
-                                        # -- End function
-	.ident	"Ubuntu clang version 16.0.0 (1~exp5ubuntu3)"
-	.section	".note.GNU-stack","",@progbits

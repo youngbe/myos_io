@@ -8,6 +8,8 @@ int mtx_init(struct Mutex* const mutex, const int type)
         mutex->count = 1;
     else
         return thrd_error;
-    al_index_init(&mutex->threads);
+    *(struct Thread **)&mutex->owner = NULL;
+    *(void **)&mutex->waiters = NULL;
+    *(void **)&mutex->wait_end = NULL;
     return thrd_success;
 }
