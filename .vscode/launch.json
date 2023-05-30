@@ -12,7 +12,7 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerServerAddress": "192.168.3.21:8864",
+            "miDebuggerServerAddress": "192.168.16.1:8864",
             "setupCommands": [
                 {
                     "text": "set disassemble-next-line on"

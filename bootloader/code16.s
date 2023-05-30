@@ -409,6 +409,9 @@ test.next_load_address:
     andl    %esi, %ebx
     cmpl    %esi, %ebx
     jne     .Lcpu_failed
+    # edx[14]: SERIALIZE
+    #testl   $1 << 14, %edx
+    #je      .Lcpu_failed
 
     # 启用OSFXSR,fsgsbase,OSXSAVE
     movl    %cr4, %eax

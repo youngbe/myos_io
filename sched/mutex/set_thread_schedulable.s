@@ -14,9 +14,9 @@ set_thread_schedulable:                 # @set_thread_schedulable
 	cmovneq	%rsi, %r8
 	movq	%rdi, (%r8)
 	lock		incq	schedulable_threads_num(%rip)
-    SERIALIZE
-    cmpq    %rdx, schedulable_threads_num(%rip)
-    je  .LBB0_2
+    #SERIALIZE
+    #cmpq    %rdx, schedulable_threads_num(%rip)
+    #je  .LBB0_2
 	cmpq	%rdx, idle_cores_num(%rip)
 	je	.LBB0_2
 	wrmsr
@@ -45,9 +45,9 @@ cli_set_thread_schedulable:             # @cli_set_thread_schedulable
 	cmovneq	%rsi, %r8
 	movq	%rdi, (%r8)
 	lock		incq	schedulable_threads_num(%rip)
-    SERIALIZE
-    cmpq    %rdx, schedulable_threads_num(%rip)
-    je  .LBB0_3
+    #SERIALIZE
+    #cmpq    %rdx, schedulable_threads_num(%rip)
+    #je  .LBB0_3
 	cmpq	%rdx, idle_cores_num(%rip)
 	je	.LBB0_3
 	wrmsr
