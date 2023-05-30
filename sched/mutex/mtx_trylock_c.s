@@ -57,9 +57,8 @@ mtx_trylock:                            # @mtx_trylock
 	xorl	%eax, %eax
 	retq
 .LBB0_7:
-	movq	8(%rdi), %rax
 	movl	$1, %ecx
-	testq	%rax, %rax
+	cmpq	$0, 8(%rdi)
 	jne	.LBB0_10
 # %bb.8:
 	xorl	%eax, %eax

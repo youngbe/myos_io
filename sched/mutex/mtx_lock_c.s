@@ -25,10 +25,10 @@ mtx_lock:                               # @mtx_lock
 	movq	(%rdi), %rax
 	testq	%rax, %rax
 	je	.LBB0_3
-# %bb.20:
+# %bb.21:
 	cmpq	%rax, %rdx
-	jne	.LBB0_9
-	jmp	.LBB0_21
+	jne	.LBB0_10
+	jmp	.LBB0_22
 .LBB0_2:
 	#APP
 	cli
@@ -36,52 +36,66 @@ mtx_lock:                               # @mtx_lock
 	movq	(%rdi), %rax
 	testq	%rax, %rax
 	je	.LBB0_3
-# %bb.19:
+# %bb.20:
 	#APP
 	sti
 	#NO_APP
 	cmpq	%rax, %rdx
-	jne	.LBB0_9
-.LBB0_21:
+	jne	.LBB0_10
+.LBB0_22:
 	movq	16(%rdi), %rcx
 	movl	$2, %eax
 	incq	%rcx
 	cmpq	$2, %rcx
-	jae	.LBB0_22
-.LBB0_27:
+	jae	.LBB0_23
+.LBB0_28:
 	retq
 .LBB0_3:
-	movq	8(%rdi), %rax
-	xorl	%r8d, %r8d
-	testq	%rax, %rax
-	jne	.LBB0_6
+	cmpq	$0, 8(%rdi)
+	je	.LBB0_5
 # %bb.4:
+	xorl	%r8d, %r8d
+	testl	$512, %ecx                      # imm = 0x200
+	je	.LBB0_9
+	jmp	.LBB0_8
+.LBB0_5:
+	xorl	%r8d, %r8d
 	xorl	%eax, %eax
 	lock		cmpxchgq	%rdx, 8(%rdi)
-	jne	.LBB0_6
-# %bb.5:
+	je	.LBB0_6
+# %bb.7:
+	testl	$512, %ecx                      # imm = 0x200
+	jne	.LBB0_8
+.LBB0_9:
+	xorl	%eax, %eax
+	testb	%r8b, %r8b
+	jne	.LBB0_28
+	jmp	.LBB0_10
+.LBB0_23:
+	movq	%rcx, 16(%rdi)
+	xorl	%eax, %eax
+	retq
+.LBB0_6:
 	movq	%rdx, (%rdi)
 	movb	$1, %r8b
-.LBB0_6:
 	testl	$512, %ecx                      # imm = 0x200
-	je	.LBB0_8
-# %bb.7:
+	je	.LBB0_9
+.LBB0_8:
 	#APP
 	sti
 	#NO_APP
-.LBB0_8:
 	xorl	%eax, %eax
 	testb	%r8b, %r8b
-	jne	.LBB0_27
-.LBB0_9:
+	jne	.LBB0_28
+.LBB0_10:
 	movq	40(%rsi), %r8
 	movq	%r8, %rax
 	andq	$-2, %rax
 	testb	$1, %r8b
-	jne	.LBB0_11
-# %bb.10:
+	jne	.LBB0_12
+# %bb.11:
 	lock		incq	(%rax)
-.LBB0_11:
+.LBB0_12:
 	#APP
 	pushq	%rbp
 	pushq	%r15
@@ -100,12 +114,12 @@ mtx_lock:                               # @mtx_lock
 	pushq	%rcx
 	#NO_APP
 	testl	$512, %ecx                      # imm = 0x200
-	je	.LBB0_13
-# %bb.12:
+	je	.LBB0_14
+# %bb.13:
 	#APP
 	cli
 	#NO_APP
-.LBB0_13:
+.LBB0_14:
 	#APP
 	swapgs
 	rdgsbaseq	%r9
@@ -122,39 +136,35 @@ mtx_lock:                               # @mtx_lock
 	testq	%rsi, %rsi
 	cmoveq	%rdi, %rsi
 	movq	%rdx, (%rsi)
-	je	.LBB0_14
-# %bb.23:
+	je	.LBB0_15
+# %bb.24:
 	movq	%rax, %rdi
 	#APP
 	rdgsbaseq	%rsp
 	addq	$65520, %rsp                    # imm = 0xFFF0
 	jmp	switch_to_empty
 	#NO_APP
-# %bb.24:
-.LBB0_14:
+# %bb.25:
+.LBB0_15:
 	testl	$512, %ecx                      # imm = 0x200
-	je	.LBB0_16
-# %bb.15:
+	je	.LBB0_17
+# %bb.16:
 	#APP
 	sti
 	#NO_APP
-.LBB0_16:
+.LBB0_17:
 	testb	$1, %r8b
-	jne	.LBB0_18
-# %bb.17:
+	jne	.LBB0_19
+# %bb.18:
 	lock		decq	(%rax)
-.LBB0_18:
+.LBB0_19:
 	#APP
 	addq	$88, %rsp
 	#NO_APP
 	xorl	%eax, %eax
 	retq
-.LBB0_22:
-	movq	%rcx, 16(%rdi)
-	xorl	%eax, %eax
-	retq
 .Ltmp0:                                 # Block address taken
-.LBB0_25:                               # Label of block must be emitted
+.LBB0_26:                               # Label of block must be emitted
 	#APP
 	popq	%r12
 	swapgs

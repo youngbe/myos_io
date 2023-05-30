@@ -6,6 +6,11 @@
 #include <stdnoreturn.h>
 
 extern struct Core_Data kernel_gs_base;
+// empty_switch_to_empty_interrupt: stack_save
+void empty_switch_to_empty_interrupt(void)
+{
+}
+/*
 // 进入时%rsp 对齐16
 noreturn void empty_switch_to_empty_interrupt(void)
 {
@@ -46,6 +51,7 @@ noreturn void empty_switch_to_empty_interrupt(void)
     __asm__ volatile ("jmp  switch_to_interrupt"::"D"(list_entry((void *)temp_ret.head, struct Thread, al_node)), "S"(kernel_gs_base.proc):);
     __builtin_unreachable();
 }
+*/
 
 // stack_safe
 // cli

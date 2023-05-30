@@ -16,12 +16,10 @@ mtx_unlock(struct Mutex *const mutex)
         --mutex->count;
         return thrd_success;
     }
-    atomic_thread_fence(memory_order_release);
     struct RET_al_delete_front temp_ret = al_delete_front2(&mutex->threads);
     if (temp_ret.next == NULL)
         return thrd_success;
     struct Thread *const new_owner = list_entry((void *)temp_ret.next, struct Thread, temp0);
-    atomic_thread_fence(memory_order_release);
     if (check_sti())
         cli_set_thread_schedulable(new_owner);
     else

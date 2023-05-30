@@ -50,23 +50,23 @@ static inline al_node_t *al_head(const al_index_t *index);
 // 往链表末尾添加
 // 返回值：0：原链表为空
 // 1：原链表不为空
+// 如果原链表为空，则memory_order_acq_rel
+// 否则memory_order_release
 __attribute__((noinline)) int
-al_append(al_index_t *index, al_node_t *node, bool is_sti);
-static inline __attribute__((always_inline)) int
-al_append_inline(al_index_t *index, al_node_t *node, bool is_sti);
+al_append(al_index_t *index, al_node_t *node);
 
 __attribute__((noinline)) int
-al_append_empty(al_index_t *index, al_node_t *node, bool is_sti);
-static inline __attribute__((always_inline)) int
-al_append_empty_inline(al_index_t *index, al_node_t *node, bool is_sti);
+al_append_empty(al_index_t *index, al_node_t *node);
 
 __attribute__((noinline)) int
-al_appends(al_index_t *index, al_node_t *head, al_node_t *end, bool is_sti);
+al_appends(al_index_t *index, al_node_t *head, al_node_t *end);
 
 
 
 // al_delete_front: 获取并删除链表第一个元素
 // 如果返回NULL，说明链表为空
+// 如果成功删除最后一个，则memory_order_acq_rel
+// 如果成功删除，则 memory_order_acquire
 struct RET_al_delete_front
 {
     al_node_t *head;
@@ -78,6 +78,7 @@ static inline struct RET_al_delete_front al_delete_front2(al_index_t *index);
 
 
 // al_clear: 清空链表并返回原链表
+// memory_order_acq_rel
 struct RET_al_clear
 {
     al_node_t *head;
@@ -145,7 +146,8 @@ al_append_empty_inline(struct Atomic_List_Index *const index, _Atomic(void *) *c
                 :
                 :);
     }
-    _Atomic(void *)* end = atomic_load_explicit(&index->end, memory_order_relaxed);
+    _Atomic(void *)* end = *(void *volatile *)&index->end;
+    //_Atomic(void *)* end = atomic_load_explicit(&index->end, memory_order_relaxed);
     // memory_order_release: let *node = NULL visible
     if (end == NULL && atomic_compare_exchange_strong_explicit(&index->end, &end, node, memory_order_relaxed, memory_order_relaxed))
         atomic_store_explicit(&index->head, node, memory_order_relaxed);

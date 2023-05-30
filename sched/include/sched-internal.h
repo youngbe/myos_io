@@ -113,7 +113,9 @@ extern volatile atomic_size_t idle_cores_num;
 
 extern struct Thread main_thread;
 
+// memory_order_release
 void __attribute__((noinline)) set_thread_schedulable(struct Thread *new_thread);
+// memory_order_release
 void __attribute__((noinline)) cli_set_thread_schedulable(struct Thread *new_thread);
 /*
 void __attribute__((noinline)) set_threads_schedulable(struct Thread *new_threads, size_t num, uint32_t is_sti, struct Spin_Mutex_Member *p_spin_mutex_member);
