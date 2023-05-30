@@ -33,7 +33,7 @@ enum
 
 struct Cond
 {
-    struct Thread* threads;
+    al_index_t threads;
     spin_mtx_t spin_mtx;
 };
 typedef struct Cond cnd_t;

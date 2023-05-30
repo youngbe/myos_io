@@ -2,7 +2,7 @@
 
 #include "io.h"
 #include "driver.h"
-#include "mcs_spin.h"
+#include <spinlock.h>
 
 #include <myos_sched.h>
 
@@ -68,11 +68,13 @@ void kernel_init_part1(void)
         extern void empty_isr(void);
         idts[32] = IDT_DESCRIPTOR((uintptr_t)&empty_isr, 8);
     }
+    /*
     {
         // 键盘中断
         extern void keyboard_isr(void *);
         idts[33] = IDT_DESCRIPTOR((uintptr_t)&keyboard_isr, 8);
     }
+    */
     {
         // kernel_abort中断
         extern void abort_handler(void);

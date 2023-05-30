@@ -19,7 +19,7 @@ void kernel_init_part6()
 {
     if (mtx_init(&default_tty.read_mtx, mtx_plain) != thrd_success || cnd_init(&default_tty.read_cnd) != thrd_success)
         abort();
-    thrd_t keyboard_thread_t;
-    if (thrd_create(&keyboard_thread_t, keyboard_thread, NULL) != thrd_success)
-        abort();
+    //thrd_t keyboard_thread_t;
+    //if (thrd_create(&keyboard_thread_t, keyboard_thread, NULL) != thrd_success)
+        //abort();
 }

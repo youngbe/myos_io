@@ -23,7 +23,7 @@ int thrd_create(thrd_t *const thr, const thrd_start_t func, void *const arg)
     new_thread->return_hook = thread_start;
 
     if (check_sti())
-        ((__typeof__(&set_thread_schedulable))cli_do)(set_thread_schedulable, new_thread);
+        cli_set_thread_schedulable(new_thread);
     else
         set_thread_schedulable(new_thread);
 
