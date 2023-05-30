@@ -8,7 +8,7 @@ timer_isr:
 
     # 获取running_thread，判断是不是跑空线程，或者是不是被kill线程
     # 如果是被kill线程或者空线程，则不需要保存上下文
-    testl       $0b11, 32(%rsp)
+    testl       $0b11, 16(%rsp)
     je          1f
     # 从用户态进来，running_thread不可能是NULL
     pushq       %rax
@@ -262,7 +262,7 @@ xsave_area_size:
     popq    %rcx
     swapgs
     wrgsbase %rcx
-    testl   $0b11, 48(%rsp)
+    testl   $0b11, 72(%rsp)
     jne     1f
     swapgs
 1:

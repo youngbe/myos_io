@@ -12,7 +12,7 @@ int thrd_create(thrd_t *const thr, const thrd_start_t func, void *const arg)
     if (new_thread == NULL)
         return thrd_error;
     new_thread->cr3 = NULL;
-    new_thread->proc = (struct Proc *)(uintptr_t)1;
+    new_thread->proc = 1;
     new_thread->is_killed = false;
     new_thread->__errno = 0;
     new_thread->_mi_heap_default = (mi_heap_t*)&_mi_heap_empty;
@@ -22,18 +22,10 @@ int thrd_create(thrd_t *const thr, const thrd_start_t func, void *const arg)
     ((void **)new_thread->rsp)[1] = arg;
     new_thread->return_hook = thread_start;
 
-    {
-        uint64_t rflags;
-        __asm__ volatile(
-                "pushfq\n\t"
-                "popq   %0"
-                :"=r"(rflags), "+m"(__not_exist_global_sym_for_asm_seq)
-                :
-                :);
-        struct Spin_Mutex_Member spin_mutex_member;
-        spin_mutex_member_init(&spin_mutex_member);
-        set_thread_schedulable(new_thread, rflags & 512, &spin_mutex_member);
-    }
+    if (check_sti())
+        ((__typeof__(&set_thread_schedulable))cli_do)(set_thread_schedulable, new_thread);
+    else
+        set_thread_schedulable(new_thread);
 
     *thr = new_thread;
     return thrd_success;

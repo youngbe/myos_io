@@ -20,7 +20,7 @@ extern alignas(4096) const uint64_t kernel_pt1[512];
 struct Thread main_thread = {
     .__errno = 0,
     ._mi_heap_default = (mi_heap_t*)&_mi_heap_empty,
-    .proc = (struct Proc *)((uintptr_t)&default_proc + 1),
+    .proc = (uintptr_t)&default_proc + 1,
     .cr3 = NULL,
     .is_killed = false,
 };
@@ -38,9 +38,9 @@ static struct Core_Data main_core_data = {
     .tss.rsp0 = (uintptr_t)&main_thread.stack[sizeof(main_thread.stack) / sizeof(main_thread.stack[0])],
 };
 
-struct Thread *schedulable_threads = NULL;
+al_index_t schedulable_threads = AL_INDEX_INIT_VAL;
 spin_mtx_t schedulable_threads_lock = SPIN_MUTEX_INIT_VAL;
-volatile _Atomic(ssize_t) schedulable_threads_num = 0;
+volatile atomic_size_t schedulable_threads_num = 0;
 volatile _Atomic(ssize_t) old_schedulable_threads_num = 0;
 // 由kernel_init_part4进行初始化
 volatile atomic_size_t idle_cores_num;
