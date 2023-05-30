@@ -6,8 +6,8 @@
 #include <stdnoreturn.h>
 
 extern struct Core_Data kernel_gs_base;
-// 进入时%rsp 对齐16 ，预留16字节栈空间
-noreturn void empty_switch_empty_interrupt(void)
+// 进入时%rsp 对齐16
+noreturn void empty_switch_to_empty_interrupt(void)
 {
     atomic_fetch_sub_explicit(&idle_cores_num, 1, memory_order_relaxed);
     {
@@ -35,7 +35,7 @@ noreturn void empty_switch_empty_interrupt(void)
     }
 
     struct Spin_Mutex_Member *p_spin_mutex_member;
-    __asm__ volatile ("movq     %%rsp, %0":"=r"(p_spin_mutex_member)::);
+    __asm__ volatile ("leaq     -16(%%rsp), %0":"=r"(p_spin_mutex_member)::);
     spin_mutex_member_init(p_spin_mutex_member);
 
     struct RET_al_delete_front temp_ret;

@@ -4,15 +4,15 @@
     .p2align    4, 0x90
     .type   timer_isr,@function
 timer_isr:
-    pushq   %rax
-    pushq   %rcx
-    pushq   %rdx
+    pushq       %rdx
 
     # 获取running_thread，判断是不是跑空线程，或者是不是被kill线程
     # 如果是被kill线程或者空线程，则不需要保存上下文
     testl       $0b11, 32(%rsp)
     je          1f
     # 从用户态进来，running_thread不可能是NULL
+    pushq       %rax
+    pushq       %rcx
     movq        $-1, %rax
     lock xaddq  %rax, old_schedulable_threads_num(%rip)
     testq       %rax, %rax
@@ -23,7 +23,9 @@ timer_isr:
     # 在内核态，running_thread可能是NULL
     movq        %gs:0, %rdx
     testq       %rdx, %rdx
-    jz          empty_thread_switch_isr
+    jz          empty_switch_to_empty_interrupt
+    pushq       %rax
+    pushq       %rcx
     movq        $-1, %rax
     lock xaddq  %rax, old_schedulable_threads_num(%rip)
     testq       %rax, %rax
@@ -272,9 +274,9 @@ xsave_area_size:
     popq    %rdi
     popq    %rsi
 .Lpop3_iretq:
-    popq    %rdx
     popq    %rcx
     popq    %rax
+    popq    %rdx
     iretq
 
 .Lfast_exit_new:

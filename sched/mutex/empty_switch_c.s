@@ -1,12 +1,12 @@
 	.text
 	.file	"empty_switch_c.c"
-	.section	.text.empty_switch_empty_interrupt,"ax",@progbits
-	.globl	empty_switch_empty_interrupt    # -- Begin function empty_switch_empty_interrupt
+	.section	.text.empty_switch_to_empty_interrupt,"ax",@progbits
+	.globl	empty_switch_to_empty_interrupt # -- Begin function empty_switch_to_empty_interrupt
 	.p2align	4, 0x90
-	.type	empty_switch_empty_interrupt,@function
-empty_switch_empty_interrupt:           # @empty_switch_empty_interrupt
-.Lempty_switch_empty_interrupt$local:
-	.type	.Lempty_switch_empty_interrupt$local,@function
+	.type	empty_switch_to_empty_interrupt,@function
+empty_switch_to_empty_interrupt:        # @empty_switch_to_empty_interrupt
+.Lempty_switch_to_empty_interrupt$local:
+	.type	.Lempty_switch_to_empty_interrupt$local,@function
 # %bb.0:
 	lock		decq	idle_cores_num(%rip)
 	movq	schedulable_threads_num(%rip), %rax
@@ -37,7 +37,7 @@ empty_switch_empty_interrupt:           # @empty_switch_empty_interrupt
 	#NO_APP
 .LBB0_5:
 	#APP
-	movq	%rsp, %rcx
+	leaq	-16(%rsp), %rcx
 	#NO_APP
 	movl	$0, (%rcx)
 	movq	$0, 8(%rcx)
@@ -131,8 +131,8 @@ empty_switch_empty_interrupt:           # @empty_switch_empty_interrupt
 	jmp	switch_to_interrupt
 	#NO_APP
 .Lfunc_end0:
-	.size	empty_switch_empty_interrupt, .Lfunc_end0-empty_switch_empty_interrupt
-	.size	.Lempty_switch_empty_interrupt$local, .Lfunc_end0-empty_switch_empty_interrupt
+	.size	empty_switch_to_empty_interrupt, .Lfunc_end0-empty_switch_to_empty_interrupt
+	.size	.Lempty_switch_to_empty_interrupt$local, .Lfunc_end0-empty_switch_to_empty_interrupt
                                         # -- End function
 	.section	.text.switch_to,"ax",@progbits
 	.globl	switch_to                       # -- Begin function switch_to

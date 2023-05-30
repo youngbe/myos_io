@@ -1,8 +1,16 @@
-	.section	.text.empty_switch_empty_interrupt,"ax",@progbits
-	.globl	empty_switch_empty_interrupt    # -- Begin function empty_switch_empty_interrupt
+	.section	.text.empty_switch_to_empty_interrupt,"ax",@progbits
+	.globl	empty_switch_to_empty_interrupt # -- Begin function empty_switch_to_empty_interrupt
 	.p2align	4, 0x90
-	.type	empty_switch_empty_interrupt,@function
-empty_switch_empty_interrupt:           # @empty_switch_empty_interrupt
+	.type	empty_switch_to_empty_interrupt,@function
+empty_switch_to_empty_interrupt:        # @empty_switch_to_empty_interrupt
+    rdgsbase    %rsp
+    addq        $65536 - 16, %rsp
+	movl	$2059, %ecx                     # imm = 0x80B
+	xorl	%eax, %eax
+	xorl	%edx, %edx
+    wrmsr
+    jmp         .Lswitch_to_empty_part2
+/*
 	lock		decq	idle_cores_num(%rip)
 	movq	schedulable_threads_num(%rip), %rax
 	testq	%rax, %rax
@@ -32,7 +40,7 @@ empty_switch_empty_interrupt:           # @empty_switch_empty_interrupt
 	#NO_APP
 .LBB0_5:
 	#APP
-	movq	%rsp, %rcx
+	leaq	-16(%rsp), %rcx
 	#NO_APP
 	movl	$0, (%rcx)
 	movq	$0, 8(%rcx)
@@ -125,6 +133,7 @@ empty_switch_empty_interrupt:           # @empty_switch_empty_interrupt
 	#APP
 	jmp	switch_to_interrupt
 	#NO_APP
+    */
 .Lfunc_end0:
 	.size	empty_switch_empty_interrupt, .Lfunc_end0-empty_switch_empty_interrupt
 
@@ -223,6 +232,7 @@ switch_to_empty:                        # @switch_to_empty
 	lock		incq	idle_cores_num(%rip)
 	movq	$0, %gs:0
 	movq	%rdi, %gs:8
+.Lswitch_to_empty_part2:
 	#APP
 	sti
 	#NO_APP
