@@ -220,6 +220,56 @@ label2:;
     return ret;
 }
 
+inline struct RET_al_delete_front al_delete_front_force(struct Atomic_List_Index *const index)
+{
+    struct RET_al_delete_front ret;
+    while ((ret.head = atomic_load_explicit(&index->head, memory_order_relaxed)) == NULL)
+        __asm__ volatile ("pause");
+    _Atomic(void *)* end = atomic_load_explicit(&index->end, memory_order_relaxed);
+    if (ret.head == end) {
+        // 链表中仅有一个元素
+        *(void **)&index->head = NULL;  // not atomic write
+        // memory_order_release: let index->head write visible
+        if (!atomic_compare_exchange_strong_explicit(&index->end, &end, NULL, memory_order_release, memory_order_relaxed))
+            goto label2;
+        if (*(void **)ret.head != NULL)
+            __builtin_unreachable();
+        ret.next = NULL;
+    } else {
+label2:;
+        // 链表中有多个元素
+        while ((ret.next = atomic_load_explicit(ret.head, memory_order_relaxed)) == NULL)
+            __asm__ volatile ("pause");
+        *(void **)&index->head = ret.next;  // not atomic write
+    }
+    return ret;
+}
+
+inline struct RET_al_delete_front al_delete_front2_force(struct Atomic_List_Index *const index)
+{
+    struct RET_al_delete_front ret;
+    while ((ret.head = atomic_load_explicit(&index->head, memory_order_relaxed)) == NULL)
+        __asm__ volatile ("pause");
+    _Atomic(void *)* end = atomic_load_explicit(&index->end, memory_order_relaxed);
+    if (ret.head == end) {
+        // 链表中仅有一个元素
+        atomic_store_explicit(&index->head, NULL, memory_order_relaxed);
+        // memory_order_release: let index->head write visible
+        if (!atomic_compare_exchange_strong_explicit(&index->end, &end, NULL, memory_order_release, memory_order_relaxed))
+            goto label2;
+        if (*(void **)ret.head != NULL)
+            __builtin_unreachable();
+        ret.next = NULL;
+    } else {
+label2:;
+        // 链表中有多个元素
+        while ((ret.next = atomic_load_explicit(ret.head, memory_order_relaxed)) == NULL)
+            __asm__ volatile ("pause");
+        atomic_store_explicit(&index->head, ret.next, memory_order_relaxed);
+    }
+    return ret;
+}
+
 
 /*
 inline struct RET_al_clear al_clear(struct Atomic_List *const list)

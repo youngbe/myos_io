@@ -34,7 +34,7 @@ noreturn void kkk(void)
 
     struct RET_al_delete_front temp_ret;
     spin_lock_inline(&schedulable_threads_lock, &spin_mutex_member);
-    temp_ret = al_delete_front(&schedulable_threads);
+    temp_ret = al_delete_front_force(&schedulable_threads);
     spin_unlock_inline(&schedulable_threads_lock, &spin_mutex_member);
 
     if (temp_ret.head == NULL)
@@ -49,14 +49,14 @@ noreturn void kkk(void)
             atomic_fetch_sub_explicit(&current_proc->threads_num, 1, memory_order_acquire);
         __asm__ volatile (
                 "popq   %%rsp\n\t"
-                "addq   $72, %%rsp\n\t"
+                "addq   $80, %%rsp\n\t"
                 "wrmsr"
                 :"+m"(__not_exist_global_sym_for_asm_seq)
                 :"c"((uint32_t)0x80b), "a"((uint32_t)0), "d"((uint32_t)0)
                 :"cc");
         atomic_fetch_add_explicit(&old_schedulable_threads_num, 1, memory_order_release);
         __asm__ volatile (
-                "jmp    .Lpop8_iretq"
+                "jmp    .Lpop7_iretq"
                 :
                 :
                 :);

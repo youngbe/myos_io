@@ -162,10 +162,11 @@ noreturn void switch_to_empty(struct Proc *const current_proc)
             __asm__ volatile ("pause":::);
         }
     }
+    atomic_fetch_sub_explicit(&old_schedulable_threads_num, 1, memory_order_relaxed);
 
     struct RET_al_delete_front temp_ret;
     spin_lock_inline(&schedulable_threads_lock, p_spin_mutex_member);
-    temp_ret = al_delete_front(&schedulable_threads);
+    temp_ret = al_delete_front_force(&schedulable_threads);
     spin_unlock_inline(&schedulable_threads_lock, p_spin_mutex_member);
     struct Thread *const new_thread = list_entry((void *)temp_ret.head, struct Thread, al_node);
     if (temp_ret.next != NULL)

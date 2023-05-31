@@ -155,14 +155,15 @@ switch_to_empty:                        # @switch_to_empty
 	jmp	empty_loop
 	#NO_APP
 .LBB3_5:
+	lock		decq	old_schedulable_threads_num(%rip)
 	movq	%rcx, %rax
 	xchgq	%rax, schedulable_threads_lock(%rip)
 	testq	%rax, %rax
-	je	.LBB3_9
+	je	.LBB3_10
 # %bb.6:
 	movq	%rcx, 8(%rax)
 	cmpl	$0, (%rcx)
-	jne	.LBB3_9
+	jne	.LBB3_10
 	.p2align	4, 0x90
 .LBB3_7:                                # =>This Inner Loop Header: Depth=1
 	#APP
@@ -170,82 +171,68 @@ switch_to_empty:                        # @switch_to_empty
 	#NO_APP
 	cmpl	$0, (%rcx)
 	je	.LBB3_7
-.LBB3_9:
-	movq	schedulable_threads+8(%rip), %rdi
-	testq	%rdi, %rdi
-	je	.LBB3_10
+	jmp	.LBB3_10
 	.p2align	4, 0x90
-# %bb.12:
-	movq	schedulable_threads(%rip), %r8
-	testq	%r8, %r8
-	jne	.LBB3_13
-.LBB3_11:                               # =>This Inner Loop Header: Depth=1
+.LBB3_9:                                #   in Loop: Header=BB3_10 Depth=1
 	#APP
 	pause
 	#NO_APP
-	movq	schedulable_threads(%rip), %r8
-	testq	%r8, %r8
-	je	.LBB3_11
-.LBB3_13:
-	cmpq	%rdi, %r8
-	jne	.LBB3_16
-# %bb.14:
+.LBB3_10:                               # =>This Inner Loop Header: Depth=1
+	movq	schedulable_threads(%rip), %rdi
+	testq	%rdi, %rdi
+	je	.LBB3_9
+# %bb.11:
+	movq	schedulable_threads+8(%rip), %rax
+	cmpq	%rax, %rdi
+	jne	.LBB3_14
+# %bb.12:
 	movq	$0, schedulable_threads(%rip)
 	xorl	%edx, %edx
-	movq	%rdi, %rax
 	lock		cmpxchgq	%rdx, schedulable_threads+8(%rip)
-	je	.LBB3_18
+	je	.LBB3_16
 	.p2align	4, 0x90
-.LBB3_16:
-	movq	(%r8), %rdx
+.LBB3_14:
+	movq	(%rdi), %rdx
 	testq	%rdx, %rdx
-	jne	.LBB3_17
-.LBB3_15:                               # =>This Inner Loop Header: Depth=1
+	jne	.LBB3_15
+.LBB3_13:                               # =>This Inner Loop Header: Depth=1
 	#APP
 	pause
 	#NO_APP
-	movq	(%r8), %rdx
+	movq	(%rdi), %rdx
 	testq	%rdx, %rdx
-	je	.LBB3_15
-.LBB3_17:
+	je	.LBB3_13
+.LBB3_15:
 	movq	%rdx, schedulable_threads(%rip)
-	movq	%r8, %rdi
-.LBB3_18:
+.LBB3_16:
 	movq	schedulable_threads_lock(%rip), %rax
 	cmpq	%rcx, %rax
-	jne	.LBB3_21
-	jmp	.LBB3_19
-.LBB3_10:
-	xorl	%edi, %edi
-	xorl	%edx, %edx
-	movq	schedulable_threads_lock(%rip), %rax
-	cmpq	%rcx, %rax
-	jne	.LBB3_21
-.LBB3_19:
+	jne	.LBB3_19
+# %bb.17:
 	xorl	%r8d, %r8d
 	movq	%rcx, %rax
 	lock		cmpxchgq	%r8, schedulable_threads_lock(%rip)
-	je	.LBB3_23
+	je	.LBB3_21
 	.p2align	4, 0x90
-.LBB3_21:
+.LBB3_19:
 	movq	8(%rcx), %rax
 	testq	%rax, %rax
-	jne	.LBB3_22
-.LBB3_20:                               # =>This Inner Loop Header: Depth=1
+	jne	.LBB3_20
+.LBB3_18:                               # =>This Inner Loop Header: Depth=1
 	#APP
 	pause
 	#NO_APP
 	movq	8(%rcx), %rax
 	testq	%rax, %rax
-	je	.LBB3_20
-.LBB3_22:
+	je	.LBB3_18
+.LBB3_20:
 	movl	$1, (%rax)
-.LBB3_23:
+.LBB3_21:
 	testq	%rdx, %rdx
-	je	.LBB3_25
-# %bb.24:
+	je	.LBB3_23
+# %bb.22:
 	movq	$0, (%rdi)
-.LBB3_25:
+.LBB3_23:
 	#APP
 	jmp	switch_to
 	#NO_APP
