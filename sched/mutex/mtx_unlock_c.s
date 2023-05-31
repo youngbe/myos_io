@@ -1,5 +1,5 @@
 	.text
-	.file	"mtx_unlock.c"
+	.file	"mtx_unlock_c.c"
 	.section	.text.mtx_unlock,"ax",@progbits
 	.globl	mtx_unlock                      # -- Begin function mtx_unlock
 	.p2align	4, 0x90

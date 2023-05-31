@@ -3,12 +3,12 @@
 	.p2align	4, 0x90
 	.type	empty_switch_to_empty_interrupt,@function
 empty_switch_to_empty_interrupt:        # @empty_switch_to_empty_interrupt
-    rdgsbase    %rsp
-    addq        $65536 - 16, %rsp
 	movl	$2059, %ecx                     # imm = 0x80B
 	xorl	%eax, %eax
 	xorl	%edx, %edx
     wrmsr
+    rdgsbase    %rsp
+    addq        $65536 - 16, %rsp
     jmp         .Lswitch_to_empty_part2
 .Lfunc_end0:
 	.size	empty_switch_to_empty_interrupt, .Lfunc_end0-empty_switch_to_empty_interrupt
@@ -166,40 +166,40 @@ switch_to_empty:                        # @switch_to_empty
 	je	.LBB3_10
 	.p2align	4, 0x90
 # %bb.12:
-	movq	schedulable_threads(%rip), %rdx
-	testq	%rdx, %rdx
+	movq	schedulable_threads(%rip), %r8
+	testq	%r8, %r8
 	jne	.LBB3_13
 .LBB3_11:                               # =>This Inner Loop Header: Depth=1
 	#APP
 	pause
 	#NO_APP
-	movq	schedulable_threads(%rip), %rdx
-	testq	%rdx, %rdx
+	movq	schedulable_threads(%rip), %r8
+	testq	%r8, %r8
 	je	.LBB3_11
 .LBB3_13:
-	cmpq	%rdi, %rdx
+	cmpq	%rdi, %r8
 	jne	.LBB3_16
 # %bb.14:
 	movq	$0, schedulable_threads(%rip)
-	xorl	%r8d, %r8d
+	xorl	%edx, %edx
 	movq	%rdi, %rax
-	lock		cmpxchgq	%r8, schedulable_threads+8(%rip)
+	lock		cmpxchgq	%rdx, schedulable_threads+8(%rip)
 	je	.LBB3_18
 	.p2align	4, 0x90
 .LBB3_16:
-	movq	(%rdx), %rax
-	testq	%rax, %rax
+	movq	(%r8), %rdx
+	testq	%rdx, %rdx
 	jne	.LBB3_17
 .LBB3_15:                               # =>This Inner Loop Header: Depth=1
 	#APP
 	pause
 	#NO_APP
-	movq	(%rdx), %rax
-	testq	%rax, %rax
+	movq	(%r8), %rdx
+	testq	%rdx, %rdx
 	je	.LBB3_15
 .LBB3_17:
-	movq	%rax, schedulable_threads(%rip)
-	movq	%rdx, %rdi
+	movq	%rdx, schedulable_threads(%rip)
+	movq	%r8, %rdi
 .LBB3_18:
 	movq	schedulable_threads_lock(%rip), %rax
 	cmpq	%rcx, %rax
@@ -207,13 +207,14 @@ switch_to_empty:                        # @switch_to_empty
 	jmp	.LBB3_19
 .LBB3_10:
 	xorl	%edi, %edi
+	xorl	%edx, %edx
 	movq	schedulable_threads_lock(%rip), %rax
 	cmpq	%rcx, %rax
 	jne	.LBB3_21
 .LBB3_19:
-	xorl	%edx, %edx
+	xorl	%r8d, %r8d
 	movq	%rcx, %rax
-	lock		cmpxchgq	%rdx, schedulable_threads_lock(%rip)
+	lock		cmpxchgq	%r8, schedulable_threads_lock(%rip)
 	je	.LBB3_23
 	.p2align	4, 0x90
 .LBB3_21:
@@ -230,6 +231,11 @@ switch_to_empty:                        # @switch_to_empty
 .LBB3_22:
 	movl	$1, (%rax)
 .LBB3_23:
+	testq	%rdx, %rdx
+	je	.LBB3_25
+# %bb.24:
+	movq	$0, (%rdi)
+.LBB3_25:
 	#APP
 	jmp	switch_to
 	#NO_APP

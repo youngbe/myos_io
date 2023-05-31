@@ -178,6 +178,8 @@ inline struct RET_al_delete_front al_delete_front(struct Atomic_List_Index *cons
         // memory_order_release: let index->head write visible
         if (!atomic_compare_exchange_strong_explicit(&index->end, &end, NULL, memory_order_release, memory_order_relaxed))
             goto label2;
+        if (*(void **)ret.head != NULL)
+            __builtin_unreachable();
         ret.next = NULL;
     } else {
 label2:;
@@ -205,6 +207,8 @@ inline struct RET_al_delete_front al_delete_front2(struct Atomic_List_Index *con
         // memory_order_release: let index->head write visible
         if (!atomic_compare_exchange_strong_explicit(&index->end, &end, NULL, memory_order_release, memory_order_relaxed))
             goto label2;
+        if (*(void **)ret.head != NULL)
+            __builtin_unreachable();
         ret.next = NULL;
     } else {
 label2:;

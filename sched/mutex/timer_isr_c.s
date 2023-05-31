@@ -18,7 +18,6 @@ kkk:                                    # @kkk
 	movq	%rax, 24(%rcx)
 	movl	$0, -24(%rsp)
 	movq	$0, -16(%rsp)
-	movq	$0, (%rcx)
 	movq	40(%rcx), %rdx
 	movq	%rdx, %rsi
 	andq	$-2, %rsi
@@ -55,40 +54,40 @@ kkk:                                    # @kkk
 	je	.LBB0_7
 	.p2align	4, 0x90
 # %bb.9:
-	movq	schedulable_threads(%rip), %r9
-	testq	%r9, %r9
+	movq	schedulable_threads(%rip), %r10
+	testq	%r10, %r10
 	jne	.LBB0_10
 .LBB0_8:                                # =>This Inner Loop Header: Depth=1
 	#APP
 	pause
 	#NO_APP
-	movq	schedulable_threads(%rip), %r9
-	testq	%r9, %r9
+	movq	schedulable_threads(%rip), %r10
+	testq	%r10, %r10
 	je	.LBB0_8
 .LBB0_10:
-	cmpq	%rdi, %r9
+	cmpq	%rdi, %r10
 	jne	.LBB0_13
 # %bb.11:
 	movq	$0, schedulable_threads(%rip)
-	xorl	%r10d, %r10d
+	xorl	%r9d, %r9d
 	movq	%rdi, %rax
-	lock		cmpxchgq	%r10, schedulable_threads+8(%rip)
+	lock		cmpxchgq	%r9, schedulable_threads+8(%rip)
 	je	.LBB0_15
 	.p2align	4, 0x90
 .LBB0_13:
-	movq	(%r9), %rax
-	testq	%rax, %rax
+	movq	(%r10), %r9
+	testq	%r9, %r9
 	jne	.LBB0_14
 .LBB0_12:                               # =>This Inner Loop Header: Depth=1
 	#APP
 	pause
 	#NO_APP
-	movq	(%r9), %rax
-	testq	%rax, %rax
+	movq	(%r10), %r9
+	testq	%r9, %r9
 	je	.LBB0_12
 .LBB0_14:
-	movq	%rax, schedulable_threads(%rip)
-	movq	%r9, %rdi
+	movq	%r9, schedulable_threads(%rip)
+	movq	%r10, %rdi
 .LBB0_15:
 	movq	schedulable_threads_lock(%rip), %rax
 	cmpq	%r8, %rax
@@ -96,6 +95,7 @@ kkk:                                    # @kkk
 	jmp	.LBB0_16
 .LBB0_7:
 	xorl	%edi, %edi
+	xorl	%r9d, %r9d
 	movq	schedulable_threads_lock(%rip), %rax
 	cmpq	%r8, %rax
 	jne	.LBB0_18
@@ -119,19 +119,24 @@ kkk:                                    # @kkk
 .LBB0_19:
 	movl	$1, (%rax)
 .LBB0_20:
+	testq	%r9, %r9
+	je	.LBB0_22
+# %bb.21:
+	movq	$0, (%rdi)
+.LBB0_22:
 	cmpq	%rcx, %rdi
-	je	.LBB0_21
-# %bb.24:
+	je	.LBB0_23
+# %bb.26:
 	lock		incq	old_schedulable_threads_num(%rip)
 	#APP
 	jmp	switch_to_interrupt
 	#NO_APP
-.LBB0_21:
-	testb	$1, %dl
-	jne	.LBB0_23
-# %bb.22:
-	lock		decq	(%rsi)
 .LBB0_23:
+	testb	$1, %dl
+	jne	.LBB0_25
+# %bb.24:
+	lock		decq	(%rsi)
+.LBB0_25:
 	movl	$2059, %ecx                     # imm = 0x80B
 	xorl	%eax, %eax
 	xorl	%edx, %edx

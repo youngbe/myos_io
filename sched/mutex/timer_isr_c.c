@@ -3,22 +3,12 @@
 #include <spinlock.h>
 
 #include <stdnoreturn.h>
-/*
-#include <misc.h>
-
-#include <stdatomic.h>
-#include <stdlib.h>
-#include <stdio.h>
-*/
 
 //extern noreturn void switch_to_interrupt(struct Thread *new_thread, struct Proc *old_proc);
-extern struct Core_Data kernel_gs_base;
 noreturn void kkk(void)
 {
     struct Thread *current_thread;
     __asm__ ("nop":"=c"(current_thread)::);
-    if (current_thread != kernel_gs_base.running_thread)
-        __builtin_unreachable();
     __asm__ (
             "movq  %%rsp, %0\n\t"
             "leaq  .Lreturn(%%rip), %1"
@@ -28,7 +18,6 @@ noreturn void kkk(void)
     //current_thread->return_hook = &&label_return;
     struct Spin_Mutex_Member spin_mutex_member;
     spin_mutex_member_init(&spin_mutex_member);
-    al_node_init(&current_thread->al_node);
 
     struct Proc *current_proc;
     bool current_is_kernel;
@@ -51,6 +40,8 @@ noreturn void kkk(void)
     if (temp_ret.head == NULL)
         __builtin_unreachable();
     struct Thread *const new_thread = list_entry(temp_ret.head, struct Thread, al_node);
+    if (temp_ret.next != NULL)
+        *(void **)&new_thread->al_node = NULL;
 
     if (new_thread == current_thread) {
         // 没有切换线程，fast_exit

@@ -167,7 +167,10 @@ noreturn void switch_to_empty(struct Proc *const current_proc)
     spin_lock_inline(&schedulable_threads_lock, p_spin_mutex_member);
     temp_ret = al_delete_front(&schedulable_threads);
     spin_unlock_inline(&schedulable_threads_lock, p_spin_mutex_member);
+    struct Thread *const new_thread = list_entry((void *)temp_ret.head, struct Thread, al_node);
+    if (temp_ret.next != NULL)
+        *(void **)&new_thread->al_node = NULL;
 
-    __asm__ volatile ("jmp  switch_to"::"D"(list_entry((void *)temp_ret.head, struct Thread, al_node)), "S"(current_proc):);
+    __asm__ volatile ("jmp  switch_to"::"D"(new_thread), "S"(current_proc):);
     __builtin_unreachable();
 }

@@ -6,7 +6,7 @@ set_thread_schedulable:                 # @set_thread_schedulable
 	movl	$802851, %eax                   # imm = 0xC4023
 	xorl	%edx, %edx
 	movl	$2096, %ecx                     # imm = 0x830
-    movq    %rdx, (%rdi)
+    #movq    %rdx, (%rdi)   # not init al_node
 	movq	%rdi, %rsi
 	leaq	schedulable_threads(%rip), %r8
 	xchgq	%rsi, schedulable_threads+8(%rip)
@@ -15,8 +15,9 @@ set_thread_schedulable:                 # @set_thread_schedulable
 	movq	%rdi, (%r8)
 	lock		incq	schedulable_threads_num(%rip)
     #SERIALIZE
-    #cmpq    %rdx, schedulable_threads_num(%rip)
-    #je  .LBB0_2
+    lfence
+    cmpq    %rdx, schedulable_threads_num(%rip)
+    je  .LBB0_2
 	cmpq	%rdx, idle_cores_num(%rip)
 	je	.LBB0_2
 	wrmsr
@@ -36,7 +37,7 @@ cli_set_thread_schedulable:             # @cli_set_thread_schedulable
 	movl	$802851, %eax                   # imm = 0xC4023
 	xorl	%edx, %edx
 	movl	$2096, %ecx                     # imm = 0x830
-    movq    %rdx, (%rdi)
+    #movq    %rdx, (%rdi)   # not init al_node
 	movq	%rdi, %rsi
 	leaq	schedulable_threads(%rip), %r8
     cli
@@ -46,8 +47,9 @@ cli_set_thread_schedulable:             # @cli_set_thread_schedulable
 	movq	%rdi, (%r8)
 	lock		incq	schedulable_threads_num(%rip)
     #SERIALIZE
-    #cmpq    %rdx, schedulable_threads_num(%rip)
-    #je  .LBB0_3
+    lfence
+    cmpq    %rdx, schedulable_threads_num(%rip)
+    je  .LBB0_3
 	cmpq	%rdx, idle_cores_num(%rip)
 	je	.LBB0_3
 	wrmsr

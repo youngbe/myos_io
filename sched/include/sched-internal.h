@@ -29,6 +29,9 @@ struct Proc
 
 struct Thread
 {
+    // 如果一个线程正在运行且开启了中断，则此值必为NULL
+    // 这意味着中断来临或运行cli之后，此值一定是NULL
+    // 运行sti前，需要将此变量恢复为NULL
     alignas(16) al_node_t al_node;
     void* temp0;
     // 线程切换协议：
