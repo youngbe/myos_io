@@ -8,69 +8,48 @@ mtx_trylock:                            # @mtx_trylock
 .Lmtx_trylock$local:
 	.type	.Lmtx_trylock$local,@function
 # %bb.0:
+	leaq	8(%rdi), %rdx
+	#APP
+	#NO_APP
+	movq	(%rdi), %rax
+	testq	%rax, %rax
+	je	.LBB0_1
+# %bb.4:
 	#APP
 	movq	%gs:0, %rdx
 	#NO_APP
-	cmpq	%rdx, (%rdi)
-	je	.LBB0_1
-# %bb.3:
-	leaq	8(%rdi), %rsi
-	#APP
-	#NO_APP
-	#APP
-	pushfq
-	popq	%rax
-	#NO_APP
-	testl	$512, %eax                      # imm = 0x200
-	jne	.LBB0_4
-# %bb.6:
 	movl	$1, %ecx
-	cmpq	$0, 16(%rdi)
-	je	.LBB0_7
-.LBB0_10:
+	cmpq	%rdx, %rax
+	je	.LBB0_5
+.LBB0_8:
 	movl	%ecx, %eax
 	retq
 .LBB0_1:
+	movl	$1, %ecx
+	cmpq	$0, 16(%rdi)
+	jne	.LBB0_8
+# %bb.2:
+	xorl	%eax, %eax
+	lock		cmpxchgq	%rdx, 16(%rdi)
+	jne	.LBB0_8
+# %bb.3:
+	#APP
+	movq	%gs:0, %rax
+	#NO_APP
+	movq	%rax, (%rdi)
+	xorl	%ecx, %ecx
+	movl	%ecx, %eax
+	retq
+.LBB0_5:
 	movq	24(%rdi), %rax
 	movl	$2, %ecx
 	incq	%rax
 	cmpq	$2, %rax
-	jb	.LBB0_10
-# %bb.2:
+	jb	.LBB0_8
+# %bb.6:
 	movq	%rax, 24(%rdi)
-	xorl	%eax, %eax
-	retq
-.LBB0_4:
-	#APP
-	cli
-	#NO_APP
-	cmpq	$0, 16(%rdi)
-	je	.LBB0_5
-# %bb.9:
-	#APP
-	sti
-	#NO_APP
-	movl	$1, %ecx
+	xorl	%ecx, %ecx
 	movl	%ecx, %eax
-	retq
-.LBB0_7:
-	xorl	%eax, %eax
-	lock		cmpxchgq	%rsi, 16(%rdi)
-	jne	.LBB0_10
-	jmp	.LBB0_8
-.LBB0_5:
-	xorl	%eax, %eax
-	lock		cmpxchgq	%rsi, 16(%rdi)
-	setne	%al
-	#APP
-	sti
-	#NO_APP
-	movl	$1, %ecx
-	testb	%al, %al
-	jne	.LBB0_10
-.LBB0_8:
-	movq	%rdx, (%rdi)
-	xorl	%eax, %eax
 	retq
 .Lfunc_end0:
 	.size	mtx_trylock, .Lfunc_end0-mtx_trylock

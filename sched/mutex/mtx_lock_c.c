@@ -7,16 +7,24 @@
 extern struct Core_Data kernel_gs_base;
 int mtx_lock(struct Mutex *const mutex)
 {
-    struct Thread *const current_thread = thrd_current_inline();
-    //if (atomic_load_explicit(&mutex->owner, memory_order_relaxed) == current_thread) {
-    if (*(void **)&mutex->owner == current_thread) {
-        if (mutex->count == 0 || mutex->count == SIZE_MAX)
-            return thrd_error;
-        ++mutex->count;
-        return thrd_success;
-    }
+    struct Thread *current_thread;
     __asm__ volatile (""::"r"(&mutex->waiters):);
-    __asm__ volatile (""::"r"(&mutex->wait_end):);
+    {
+        const struct Thread *const current_owner = *(void **)&mutex->owner;
+        if (current_owner == NULL) {
+            void *current_wait_end = *(void *volatile *)&mutex->wait_end;
+            if (current_wait_end == NULL && atomic_compare_exchange_strong_explicit(&mutex->wait_end, &current_wait_end, (void *)&mutex->waiters, memory_order_relaxed, memory_order_relaxed)) {
+                atomic_store_explicit(&mutex->owner, thrd_current_inline(), memory_order_relaxed);
+                return thrd_success;
+            }
+            current_thread = thrd_current_inline();
+        } else if (current_owner == (current_thread = thrd_current_inline())) {
+            if (mutex->count == 0 || mutex->count == SIZE_MAX)
+                return thrd_error;
+            ++mutex->count;
+            return thrd_success;
+        }
+    }
     const uint64_t rflags = ({
             uint64_t temp;
             __asm__ volatile (
@@ -28,38 +36,22 @@ int mtx_lock(struct Mutex *const mutex)
             temp;
             });
     const bool is_sti = rflags & 512;
-    {
-        if (is_sti)
-            asm ("cli");
-        void *current_wait_end = *(void *volatile *)&mutex->wait_end;
-        //void *current_wait_end = atomic_load_explicit(&mutex->wait_end, memory_order_relaxed);
-        if (current_wait_end == NULL) {
-            const bool success = atomic_compare_exchange_strong_explicit(&mutex->wait_end, &current_wait_end, (void *)&mutex->waiters, memory_order_relaxed, memory_order_relaxed);
-            if (is_sti)
-                asm ("sti");
-            if (success) {
-                atomic_store_explicit(&mutex->owner, (struct Thread *)current_thread, memory_order_relaxed);
-                return thrd_success;
-            }
-        } else if (is_sti)
-            asm ("sti");
-    }
 
+    void *const node = &current_thread->temp0;
+    *(void **)node = NULL;
 
-    void **const node = &current_thread->temp0;
-    *node = NULL;
-
-    struct Proc *current_proc;
-    bool current_is_kernel;
-    {
-        const uintptr_t temp = current_thread->proc;
-        current_is_kernel = temp & 1;
-        current_proc = (struct Proc *)(temp & -2);
-    }
     // 增加虚拟线程数以防止页表被释放
-    // 这一步也是切换至空线程的步骤之一
-    if (!current_is_kernel)
-        atomic_fetch_add_explicit(&current_proc->threads_num, 1, memory_order_relaxed);
+    struct Proc *const current_proc = ({
+            struct Proc *ret;
+            const uintptr_t temp = current_thread->proc;
+            if (temp & 1)
+                ret = NULL;
+            else {
+                ret = (struct Proc *)temp;
+                atomic_fetch_add_explicit(&ret->threads_num, 1, memory_order_relaxed);
+            }
+            ret;
+            });
     // 保存上下文 && cli
     {
         uint64_t temp;
@@ -107,24 +99,44 @@ int mtx_lock(struct Mutex *const mutex)
     current_thread->return_hook = &&label_wakeup;
 
 
-    void *const last_end = atomic_exchange_explicit(&mutex->wait_end, (void *)node, memory_order_relaxed);
+    void *current_wait_end = *(void *volatile *)&mutex->wait_end;
+    if (current_wait_end == NULL) {
+        if (atomic_compare_exchange_strong_explicit(&mutex->wait_end, &current_wait_end, (void *)&mutex->waiters, memory_order_relaxed, memory_order_relaxed)) {
+label_fast_exit:
+            // 成为了owner
+            if (is_sti)
+                __asm__ volatile ("sti":"+m"(__not_exist_global_sym_for_asm_seq)::);
+            atomic_store_explicit(&mutex->owner, current_thread, memory_order_relaxed);
+            __asm__ volatile ("addq  $88, %%rsp":"+m"(__not_exist_global_sym_for_asm_seq)::"cc");
+            // 还原临时增加的虚拟线程数
+            // 这里不会导致线程数减为0，因为本线程还在运行
+            if (current_proc)
+                atomic_fetch_sub_explicit(&current_proc->threads_num, 1, memory_order_relaxed);
+            return thrd_success;
+        }
+    }
+    void *const last_end = atomic_exchange_explicit(&mutex->wait_end, node, memory_order_relaxed);
     if (last_end == NULL) {
         // 成为了owner
+        void *temp = node;
+        if (atomic_compare_exchange_strong_explicit(&mutex->wait_end, &temp, (void *)&mutex->waiters, memory_order_relaxed, memory_order_relaxed))
+            goto label_fast_exit;
         if (is_sti)
-            __asm__ volatile (
-                    "sti"
-                    :"+m"(__not_exist_global_sym_for_asm_seq)
-                    :
-                    :);
+            __asm__ volatile ("sti":"+m"(__not_exist_global_sym_for_asm_seq)::);
+        atomic_store_explicit(&mutex->owner, current_thread, memory_order_relaxed);
         __asm__ volatile ("addq  $88, %%rsp":"+m"(__not_exist_global_sym_for_asm_seq)::"cc");
         // 还原临时增加的虚拟线程数
         // 这里不会导致线程数减为0，因为本线程还在运行
-        if (!current_is_kernel)
+        if (current_proc)
             atomic_fetch_sub_explicit(&current_proc->threads_num, 1, memory_order_relaxed);
-        atomic_store_explicit(&mutex->owner, current_thread, memory_order_relaxed);
+        while ((temp = *(void *volatile*)node) == NULL)
+            asm("pause");
+        *(void **)&mutex->waiters = temp;
         return thrd_success;
-    }
-    atomic_store_explicit((_Atomic(void *) *)last_end, node, memory_order_relaxed);
+    } else
+        *(void **)last_end = node;
+
+
 
     // 从这里开始栈不可用
 
@@ -133,7 +145,7 @@ int mtx_lock(struct Mutex *const mutex)
             "addq       %0, %%rsp\n\t"
             "jmp        switch_to_empty"
             :
-            :"i"(offsetof(struct Core_Data, stack) + sizeof(kernel_gs_base.stack) - 16), "D"(current_proc)
+            :"i"(offsetof(struct Core_Data, stack) + sizeof(kernel_gs_base.stack) - 16), "D"(current_proc == NULL ? (struct Proc *)(*(volatile uintptr_t *)&current_thread->proc & -2) : current_proc)
             :"cc"
             :label_wakeup);
     __builtin_unreachable();

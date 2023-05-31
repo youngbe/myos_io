@@ -17,20 +17,14 @@ mtx_unlock(struct Mutex *const mutex)
     void *current_waiters = *(void *volatile *)&mutex->waiters;
     void *current_end = NULL;
     if (current_waiters == NULL) {
-        if (is_sti)
-            asm ("cli");
         current_end = *(void *volatile *)&mutex->wait_end;
         if (current_end == NULL)
             __builtin_unreachable();
         if (current_end == &mutex->waiters) {
-            atomic_store_explicit(&mutex->owner, NULL);
-            const bool success = atomic_compare_exchange_strong_explicit(&mutex->wait_end, &current_end, NULL, memory_order_relaxed, memory_order_relaxed);
-            if (is_sti)
-                asm ("sti");
-            if (success)
+            atomic_store_explicit(&mutex->owner, NULL, memory_order_relaxed);
+            if (atomic_compare_exchange_strong_explicit(&mutex->wait_end, &current_end, NULL, memory_order_relaxed, memory_order_relaxed))
                 return thrd_success;
-        } else if (is_sti)
-            asm ("sti");
+        }
         while ((current_waiters = *(void *volatile *)&mutex->waiters) == NULL)
             __asm__ volatile ("pause");
     }
@@ -39,24 +33,29 @@ mtx_unlock(struct Mutex *const mutex)
         next = *(void *volatile*)current_waiters;
         if (next == NULL) {
             current_end = *(void *volatile *)&mutex->wait_end;
-            if (current_end == current_waiters && atomic_compare_exchange_strong_eplicit(&, memory_order_relaxed, memory_order_relaxed))
-                goto label_next;
+            if (current_end == current_waiters) {
+                atomic_store_explicit(&mutex->waiters, NULL, memory_order_relaxed);
+                if (atomic_compare_exchange_strong_explicit(&mutex->wait_end, &current_end, (void *)&mutex->waiters, memory_order_relaxed, memory_order_relaxed))
+                    goto label_next;
+            }
             while ((next = *(void *volatile*)current_waiters) == NULL)
                 asm ("pause");
         }
         *(void *volatile *)&mutex->waiters = next;
     } else {
-        if (current_end == current_waiters && atomic_compare_exchange_strong_eplicit(&, memory_order_relaxed, memory_order_relaxed)) {
-        } else {
-            while ((next = *(void *volatile*)current_waiters) == NULL)
-                asm ("pause");
-            *(void *volatile *)&mutex->waiters = next;
+        if (current_end == current_waiters) {
+            atomic_store_explicit(&mutex->waiters, NULL, memory_order_relaxed);
+            if (atomic_compare_exchange_strong_explicit(&mutex->wait_end, &current_end, (void *)mutex->waiters, memory_order_relaxed, memory_order_relaxed))
+                goto label_next;
         }
+        while ((next = *(void *volatile*)current_waiters) == NULL)
+            asm ("pause");
+        *(void *volatile *)&mutex->waiters = next;
     }
 label_next:;
-    struct Thread *const new_thread = list_entry(current_waiters, struct Thread, temp0);
-    atomic_store_explicit(&mutex->owner, new_thread, memory_order_relaxed);
-    if (is_sti)
+    struct Thread *const new_owner = list_entry(current_waiters, struct Thread, temp0);
+    atomic_store_explicit(&mutex->owner, new_owner, memory_order_relaxed);
+    if (check_sti())
         cli_set_thread_schedulable(new_owner);
     else
         set_thread_schedulable(new_owner);
