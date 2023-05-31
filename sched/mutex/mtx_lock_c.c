@@ -25,17 +25,6 @@ int mtx_lock(struct Mutex *const mutex)
             return thrd_success;
         }
     }
-    const uint64_t rflags = ({
-            uint64_t temp;
-            __asm__ volatile (
-                    "pushfq\n\t"
-                    "popq   %0"
-                    :"=r"(temp), "+m"(__not_exist_global_sym_for_asm_seq)
-                    :
-                    :);
-            temp;
-            });
-    const bool is_sti = rflags & 512;
 
     void *const node = &current_thread->temp0;
     *(void **)node = NULL;
@@ -53,8 +42,10 @@ int mtx_lock(struct Mutex *const mutex)
             ret;
             });
     // 保存上下文 && cli
+    bool is_sti;
     {
         uint64_t temp;
+        uint64_t rflags;
         __asm__ volatile (
                 "pushq      %%rbp\n\t"
                 "pushq      %%r15\n\t"
@@ -69,12 +60,14 @@ int mtx_lock(struct Mutex *const mutex)
                 "pushq      %[temp]"
                 :[temp]"=r"(temp), "+m"(__not_exist_global_sym_for_asm_seq)
                 :
-                :"cc");
-        __asm__ volatile (
-                "pushq  %1"
-                :"+m"(__not_exist_global_sym_for_asm_seq)
-                :"r"(rflags)
                 :);
+        __asm__ volatile (
+                "pushfq\n\t"
+                "movq   (%%rsp), %[rflags]"
+                :[rflags]"=r"(rflags), "+m"(__not_exist_global_sym_for_asm_seq)
+                :
+                :);
+        is_sti = rflags & 512;
         if (is_sti) {
             __asm__ volatile (
                     "cli"
@@ -86,7 +79,7 @@ int mtx_lock(struct Mutex *const mutex)
                 "swapgs\n\t"
                 "rdgsbase   %[temp]\n\t"
                 "swapgs\n\t"
-                "pushq      %[temp]"
+                "pushq      %[temp]\n\t"
                 :[temp]"=r"(temp), "+m"(__not_exist_global_sym_for_asm_seq)
                 :
                 :);

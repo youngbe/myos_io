@@ -19,16 +19,35 @@ mtx_lock:                               # @mtx_lock
 	movq	%gs:0, %r8
 	#NO_APP
 	cmpq	%r8, %rax
-	jne	.LBB0_4
-# %bb.8:
-	movq	24(%rdi), %rax
-	movl	$2, %edx
-	incq	%rax
-	cmpq	$2, %rax
-	jae	.LBB0_9
-.LBB0_34:
-	movl	%edx, %eax
-	retq
+	je	.LBB0_8
+# %bb.4:
+	movq	$0, 8(%r8)
+	movq	40(%r8), %rcx
+	testb	$1, %cl
+	jne	.LBB0_5
+.LBB0_10:
+	lock		incq	(%rcx)
+	#APP
+	pushq	%rbp
+	pushq	%r15
+	pushq	%r14
+	pushq	%r13
+	pushq	%r12
+	pushq	%rbx
+	subq	$16, %rsp
+	wait
+	fnstcw	8(%rsp)
+	stmxcsr	(%rsp)
+	rdfsbaseq	%rax
+	pushq	%rax
+	#NO_APP
+	#APP
+	pushfq
+	movq	(%rsp), %r9
+	#NO_APP
+	testl	$512, %r9d                      # imm = 0x200
+	jne	.LBB0_12
+	jmp	.LBB0_13
 .LBB0_1:
 	cmpq	$0, 16(%rdi)
 	jne	.LBB0_3
@@ -48,37 +67,10 @@ mtx_lock:                               # @mtx_lock
 	#APP
 	movq	%gs:0, %r8
 	#NO_APP
-.LBB0_4:
-	#APP
-	pushfq
-	popq	%r9
-	#NO_APP
 	movq	$0, 8(%r8)
 	movq	40(%r8), %rcx
 	testb	$1, %cl
-	jne	.LBB0_5
-# %bb.10:
-	lock		incq	(%rcx)
-	#APP
-	pushq	%rbp
-	pushq	%r15
-	pushq	%r14
-	pushq	%r13
-	pushq	%r12
-	pushq	%rbx
-	subq	$16, %rsp
-	wait
-	fnstcw	8(%rsp)
-	stmxcsr	(%rsp)
-	rdfsbaseq	%rax
-	pushq	%rax
-	#NO_APP
-	#APP
-	pushq	%r9
-	#NO_APP
-	testl	$512, %r9d                      # imm = 0x200
-	jne	.LBB0_12
-	jmp	.LBB0_13
+	je	.LBB0_10
 .LBB0_5:
 	xorl	%ecx, %ecx
 	#APP
@@ -96,7 +88,8 @@ mtx_lock:                               # @mtx_lock
 	pushq	%rax
 	#NO_APP
 	#APP
-	pushq	%r9
+	pushfq
+	movq	(%rsp), %r9
 	#NO_APP
 	testl	$512, %r9d                      # imm = 0x200
 	je	.LBB0_13
@@ -110,6 +103,7 @@ mtx_lock:                               # @mtx_lock
 	rdgsbaseq	%rax
 	swapgs
 	pushq	%rax
+
 	#NO_APP
 	#APP
 	movq	%rsp, 16(%r8)
@@ -143,6 +137,15 @@ mtx_lock:                               # @mtx_lock
 	jmp	switch_to_empty
 	#NO_APP
 # %bb.31:
+.LBB0_8:
+	movq	24(%rdi), %rax
+	movl	$2, %edx
+	incq	%rax
+	cmpq	$2, %rax
+	jae	.LBB0_9
+.LBB0_34:
+	movl	%edx, %eax
+	retq
 .LBB0_20:
 	movq	%rdx, %rax
 	lock		cmpxchgq	%rsi, 16(%rdi)
