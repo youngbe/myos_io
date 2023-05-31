@@ -11,7 +11,7 @@ int thrd_create(thrd_t *const thr, const thrd_start_t func, void *const arg)
     const thrd_t new_thread = malloc(sizeof(struct Thread));
     if (new_thread == NULL)
         return thrd_error;
-    *(void **)new_thread->node = NULL;
+    *(void **)&new_thread->al_node = NULL;
     new_thread->cr3 = NULL;
     new_thread->proc = 1;
     new_thread->is_killed = false;
