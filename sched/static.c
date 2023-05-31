@@ -1,7 +1,7 @@
 #include "init.c"
 #include "__errno_location.c"
 #include "mutex/mtx_init.c"
-#include "mutex/mtx_unlock.c"
+//#include "mutex/mtx_unlock.c"
 #include "mutex/cnd_init.c"
 //#include "cond/cnd_init.c"
 //#include "cond/cnd_broadcast.c"
