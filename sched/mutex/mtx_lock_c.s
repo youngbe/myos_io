@@ -103,7 +103,6 @@ mtx_lock:                               # @mtx_lock
 	rdgsbaseq	%rax
 	swapgs
 	pushq	%rax
-
 	#NO_APP
 	#APP
 	movq	%rsp, 16(%r8)
