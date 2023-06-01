@@ -120,9 +120,12 @@ extern struct Thread main_thread;
 void __attribute__((noinline)) set_thread_schedulable(struct Thread *new_thread);
 // memory_order_release
 void __attribute__((noinline)) cli_set_thread_schedulable(struct Thread *new_thread);
-/*
-void __attribute__((noinline)) set_threads_schedulable(struct Thread *new_threads, size_t num, uint32_t is_sti, struct Spin_Mutex_Member *p_spin_mutex_member);
+// memory_order_release
+void __attribute__((noinline)) set_threads_schedulable(al_node_t *head, al_node_t *end, size_t count);
+// memory_order_release
+void __attribute__((noinline)) cli_set_threads_schedulable(al_node_t *head, al_node_t *end, size_t count);
 
+/*
 __attribute__((noinline, no_caller_saved_registers)) void
 set_thread_schedulable_interrupt(struct Thread *new_thread, struct Spin_Mutex_Member *p_spin_mutex_member);
 */

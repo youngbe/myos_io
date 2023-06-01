@@ -25,6 +25,9 @@ typedef struct Spin_Mutex_Member *spin_mtx_t;
 #define SPIN_MUTEX_INIT_VAL NULL
 #define SPIN_MUTEX_MEMBER_INIT_VAL {0, NULL}
 
+void cli_spinlock_do(void);
+void spinlock_do(void);
+
 static inline void spin_mutex_init(spin_mtx_t *const spin_mutex)
 {
     *spin_mutex = NULL;

@@ -271,18 +271,16 @@ label2:;
 }
 
 
-/*
-inline struct RET_al_clear al_clear(struct Atomic_List *const list)
+inline struct RET_al_clear al_clear(struct Atomic_List_Index *const index)
 {
     struct RET_al_clear ret;
-    ret.end = atomic_load_explicit(&list->end, memory_order_relaxed);
+    ret.end = atomic_load_explicit(&index->end, memory_order_relaxed);
     if (ret.end == NULL)
         return ret;
-    while ((ret.head = atomic_load_explicit(&list->head, memory_order_relaxed)) == NULL)
+    while ((ret.head = atomic_load_explicit(&index->head, memory_order_relaxed)) == NULL)
         asm ("pause");
-    *(void **)list->head = NULL;
+    *(void **)&index->head = NULL;
     // memory_order_release: let list->head write visible
-    ret.end = atomic_exchange_explicit(&list->end, NULL, memory_order_release);
+    ret.end = atomic_exchange_explicit(&index->end, NULL, memory_order_release);
     return ret;
 }
-*/

@@ -1,35 +1,36 @@
 #include "threads.h"
 #include "sched-internal.h"
 
-#include <misc.h>
+#include <stdint.h>
+#include <stdatomic.h>
 
 extern struct Core_Data kernel_gs_base;
-int cnd_wait(cnd_t *const cond, mtx_t *const mtx)
+int cnd_wait(struct Cond *const cond, struct Mutex *mutex)
 {
-    const thrd_t current_thread = thrd_current_inline();
-    if (atomic_load_explicit(&mtx->owner, memory_order_relaxed) != current_thread)
+    if (*(void **)&mutex->owner == NULL)
         return thrd_error;
-    const bool need_lock = mtx->count < 2;
-    if (need_lock)
-        current_thread->temp0 = (uintptr_t)mtx;
-    else
-        current_thread->temp0 = 0;
-    struct Proc *current_proc;
-    bool current_is_kernel;
-    {
-        const uintptr_t temp = (uintptr_t)current_thread->proc;
-        current_is_kernel = temp & 1;
-        current_proc = (struct Proc *)(uintptr_t)(temp & -2);
-    }
+    struct Thread *const current_thread = thrd_current_inline();
+    if (*(void **)&mutex->owner != current_thread)
+        return thrd_error;
+    mutex = mutex->count > 1 ? NULL : mutex;
+    current_thread->temp0 = mutex;
     // 增加虚拟线程数以防止页表被释放
-    // 这一步也是切换至空线程的步骤之一
-    if (!current_is_kernel)
-        atomic_fetch_add_explicit(&current_proc->threads_num, 1, memory_order_relaxed);
-    atomic_signal_fence(memory_order_release);
-    struct Spin_Mutex_Member *p_spin_mutex_member;
-    // 保存上下文 && spin_mutex_init && cli
+    struct Proc *const current_proc = ({
+            struct Proc *ret;
+            const uintptr_t temp = current_thread->proc;
+            if (temp & 1)
+                ret = NULL;
+            else {
+                ret = (struct Proc *)temp;
+                atomic_fetch_add_explicit(&ret->threads_num, 1, memory_order_relaxed);
+            }
+            ret;
+            });
+    // 保存上下文 && cli
+    bool is_sti;
     {
         uint64_t temp;
+        uint64_t rflags;
         __asm__ volatile (
                 "pushq      %%rbp\n\t"
                 "pushq      %%r15\n\t"
@@ -40,108 +41,110 @@ int cnd_wait(cnd_t *const cond, mtx_t *const mtx)
                 "subq       $16, %%rsp\n\t"
                 "fstcw      8(%%rsp)\n\t"
                 "stmxcsr    (%%rsp)\n\t"
-                "rdfsbase   %0\n\t"
-                "pushq      %0\n\t"
-                "pushfq\n\t"
-                "subq       $24, %%rsp"
-                :"=r"(temp), "+m"(__not_exist_global_sym_for_asm_seq)
+                "rdfsbase   %[temp]\n\t"
+                "pushq      %[temp]"
+                :[temp]"=r"(temp), "+m"(__not_exist_global_sym_for_asm_seq)
                 :
                 :"cc");
         __asm__ volatile (
-                "movq   %%rsp, %0"
-                :"=r"(p_spin_mutex_member), "+m"(__not_exist_global_sym_for_asm_seq)
+                "pushfq\n\t"
+                "movq   (%%rsp), %[rflags]"
+                :[rflags]"=r"(rflags), "+m"(__not_exist_global_sym_for_asm_seq)
                 :
                 :);
-        spin_mutex_member_init(p_spin_mutex_member);
-        atomic_signal_fence(memory_order_release);
+        is_sti = rflags & 512;
+        if (is_sti) {
+            __asm__ volatile (
+                    "cli"
+                    :"+m"(__not_exist_global_sym_for_asm_seq)
+                    :
+                    :);
+        }
         __asm__ volatile (
-                "cli\n\t"
                 "swapgs\n\t"
-                "rdgsbase   %0\n\t"
+                "rdgsbase   %[temp]\n\t"
                 "swapgs\n\t"
-                "movq       %0, 16(%%rsp)"
-                :"=r"(temp), "+m"(__not_exist_global_sym_for_asm_seq)
+                "pushq      %[temp]"
+                :[temp]"=r"(temp), "+m"(__not_exist_global_sym_for_asm_seq)
                 :
                 :);
-        atomic_signal_fence(memory_order_acquire);
+        __asm__ volatile (
+                "movq   %%rsp, %0"
+                :"=m"(current_thread->rsp), "+m"(__not_exist_global_sym_for_asm_seq)
+                :
+                :);
     }
-    current_thread->rsp = (void *)((uintptr_t)p_spin_mutex_member + 16);
     current_thread->return_hook = &&label_wakeup;
 
 
-    // 上锁
-    // 睡
-    // 解锁:从这里开始原栈不可用
-    atomic_signal_fence(memory_order_acq_rel);
-    spin_lock(&cond->spin_mtx, p_spin_mutex_member);
-    {
-        struct Thread *fake_threads = cond->threads;
-        DL_APPEND(fake_threads, current_thread);
-        cond->threads = fake_threads;
-    }
-    spin_unlock(&cond->spin_mtx, p_spin_mutex_member);
-    atomic_signal_fence(memory_order_acq_rel);
+    al_append_inline(&cond->threads, &current_thread->al_node, false);
+    // 从这里开始栈不可用
 
-    // 借用空闲栈
-    __asm__ volatile (
-            "rdgsbase   %%rsp\n\t"
-            "addq       $65520, %%rsp"
-            :"+m"(__not_exist_global_sym_for_asm_seq)
-            :
-            :"cc");
-
-    if (!need_lock) {
-        __asm__ goto volatile (
-                "jmp    switch_to_empty"
+    if (mutex == NULL) {
+label_empty:
+        __asm__ volatile goto (
+                "rdgsbase   %%rsp\n\t"
+                "addq       %0, %%rsp\n\t"
+                "jmp        switch_to_empty"
                 :
-                :"D"(current_proc)
-                :
+                :"i"(offsetof(struct Core_Data, stack) + sizeof(kernel_gs_base.stack) - 16), "D"(current_proc == NULL ? (struct Proc *)(*(volatile uintptr_t *)&current_thread->proc & -2) : current_proc)
+                :"cc"
                 :label_wakeup);
         __builtin_unreachable();
     }
 
-    __asm__ volatile (
-            "movq     %%rsp, %0"
-            :"=r"(p_spin_mutex_member), "+m"(__not_exist_global_sym_for_asm_seq)
-            :
-            :);
-
-    spin_mutex_member_init(p_spin_mutex_member);
-    struct Thread *new_owner;
-    // 上锁
-    // unlock
-    // 解锁
-    atomic_signal_fence(memory_order_acq_rel);
-    spin_lock(&mtx->spin_mtx, p_spin_mutex_member);
-    {
-        new_owner = mtx->blocked_threads;
-        if (new_owner == NULL)
-            atomic_store_explicit(&mtx->owner, NULL, memory_order_relaxed);
-        else {
-            struct Thread *fake_blocked_threads = new_owner;
-            DL_DELETE(fake_blocked_threads, new_owner);
-            mtx->blocked_threads = fake_blocked_threads;
+    // 进行unlock
+    void *current_waiters = *(void *volatile *)&mutex->waiters;
+    void *current_end = NULL;
+    if (current_waiters == NULL) {
+        current_end = *(void *volatile *)&mutex->wait_end;
+        if (current_end == NULL)
+            __builtin_unreachable();
+        if (current_end == &mutex->waiters) {
+            atomic_store_explicit(&mutex->owner, NULL, memory_order_relaxed);
+            if (atomic_compare_exchange_strong_explicit(&mutex->wait_end, &current_end, NULL, memory_order_relaxed, memory_order_relaxed))
+                goto label_empty;
         }
+        while ((current_waiters = *(void *volatile *)&mutex->waiters) == NULL)
+            __asm__ volatile ("pause");
     }
-    spin_unlock(&mtx->spin_mtx, p_spin_mutex_member);
-    atomic_signal_fence(memory_order_acq_rel);
-
-    // 如果没有解锁出新线程 find_hook()
-    if (new_owner != NULL) {
-        // 在unlock之后再存
-        atomic_store_explicit(&mtx->owner, new_owner, memory_order_relaxed);
-        __asm__ volatile goto ("jmp switch_to"::"D"(new_owner), "S"(current_proc)::label_wakeup);
-        __builtin_unreachable();
+    void *next;
+    if (current_end == NULL) {
+        next = *(void *volatile*)current_waiters;
+        if (next == NULL) {
+            current_end = *(void *volatile *)&mutex->wait_end;
+            if (current_end == current_waiters) {
+                atomic_store_explicit(&mutex->waiters, NULL, memory_order_relaxed);
+                if (atomic_compare_exchange_strong_explicit(&mutex->wait_end, &current_end, (void *)&mutex->waiters, memory_order_relaxed, memory_order_relaxed))
+                    goto label_next;
+            }
+            while ((next = *(void *volatile*)current_waiters) == NULL)
+                asm ("pause");
+        }
+        *(void *volatile *)&mutex->waiters = next;
     } else {
-        __asm__ goto volatile (
-                "jmp    switch_to_empty"
-                :
-                :"D"(current_proc)
-                :
-                :label_wakeup);
-        __builtin_unreachable();
+        if (current_end == current_waiters) {
+            atomic_store_explicit(&mutex->waiters, NULL, memory_order_relaxed);
+            if (atomic_compare_exchange_strong_explicit(&mutex->wait_end, &current_end, (void *)&mutex->waiters, memory_order_relaxed, memory_order_relaxed))
+                goto label_next;
+        }
+        while ((next = *(void *volatile*)current_waiters) == NULL)
+            asm ("pause");
+        *(void *volatile *)&mutex->waiters = next;
     }
+label_next:;
+    struct Thread *const new_owner = list_entry(current_waiters, struct Thread, temp0);
+    atomic_store_explicit(&mutex->owner, new_owner, memory_order_relaxed);
 
+    __asm__ volatile goto (
+            "jmp        switch_to"
+            :
+            :"D"(new_owner), "S"(current_proc == NULL ? (struct Proc *)(*(volatile uintptr_t *)&current_thread->proc & -2) : current_proc)
+            :"cc"
+            :label_wakeup);
+    __builtin_unreachable();
+
+    // 线程下次被唤醒就从这里开始运行
     {
 label_wakeup:
         __asm__ volatile (
