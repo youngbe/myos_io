@@ -45,7 +45,7 @@ mtx_unlock(struct Mutex *const mutex)
     } else {
         if (current_end == current_waiters) {
             atomic_store_explicit(&mutex->waiters, NULL, memory_order_relaxed);
-            if (atomic_compare_exchange_strong_explicit(&mutex->wait_end, &current_end, (void *)mutex->waiters, memory_order_relaxed, memory_order_relaxed))
+            if (atomic_compare_exchange_strong_explicit(&mutex->wait_end, &current_end, (void *)&mutex->waiters, memory_order_relaxed, memory_order_relaxed))
                 goto label_next;
         }
         while ((next = *(void *volatile*)current_waiters) == NULL)

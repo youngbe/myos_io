@@ -89,9 +89,8 @@ mtx_unlock:                             # @mtx_unlock
 	jne	.LBB0_18
 # %bb.16:
 	movq	$0, 8(%rdi)
-	movq	8(%rdi), %r8
 	movq	%rsi, %rax
-	lock		cmpxchgq	%r8, 16(%rdi)
+	lock		cmpxchgq	%rcx, 16(%rdi)
 	jne	.LBB0_18
 	jmp	.LBB0_21
 	.p2align	4, 0x90
