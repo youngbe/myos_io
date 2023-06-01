@@ -136,11 +136,11 @@ noreturn void switch_to_empty(struct Proc *current_proc)
 
     __asm__ volatile ("sti":"+m"(__not_exist_global_sym_for_asm_seq)::);
 
-    struct Spin_Mutex_Member *p_spin_mutex_member;
-    __asm__ volatile ("movq     %%rsp, %0":"=r"(p_spin_mutex_member), "+m"(__not_exist_global_sym_for_asm_seq)::);
     __asm__ volatile ("":::"rsi");
     __asm__ volatile ("":"+S"(current_proc)::"rdi");
     //__asm__ volatile (""::"S"(current_proc):"rdi");
+    struct Spin_Mutex_Member *p_spin_mutex_member;
+    __asm__ volatile ("movq     %%rsp, %0":"=r"(p_spin_mutex_member), "+m"(__not_exist_global_sym_for_asm_seq)::);
     spin_mutex_member_init(p_spin_mutex_member);
 
     __asm__ volatile ("cli":"+m"(__not_exist_global_sym_for_asm_seq)::);

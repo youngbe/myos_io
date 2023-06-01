@@ -114,13 +114,13 @@ switch_to_empty:                        # @switch_to_empty
 	sti
 	#NO_APP
 	#APP
-	movq	%rsp, %rcx
-	#NO_APP
-	#APP
 	#NO_APP
 	movq	%rdi, %rsi
+	#APP
+	#NO_APP
 .Lswitch_to_empty_part2:
 	#APP
+	movq	%rsp, %rcx
 	#NO_APP
 	movl	$0, (%rcx)
 	movq	$0, 8(%rcx)
