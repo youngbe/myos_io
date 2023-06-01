@@ -9,6 +9,8 @@ empty_switch_to_empty_interrupt:        # @empty_switch_to_empty_interrupt
     wrmsr
     rdgsbase    %rsp
     addq        $65536 - 16, %rsp
+    sti
+    movq        %gs:8, %rsi
     jmp         .Lswitch_to_empty_part2
 .Lfunc_end0:
 	.size	empty_switch_to_empty_interrupt, .Lfunc_end0-empty_switch_to_empty_interrupt
@@ -108,12 +110,17 @@ switch_to_empty:                        # @switch_to_empty
 	lock		incq	idle_cores_num(%rip)
 	movq	$0, %gs:0
 	movq	%rdi, %gs:8
-.Lswitch_to_empty_part2:
 	#APP
 	sti
 	#NO_APP
 	#APP
 	movq	%rsp, %rcx
+	#NO_APP
+	#APP
+	#NO_APP
+	movq	%rdi, %rsi
+.Lswitch_to_empty_part2:
+	#APP
 	#NO_APP
 	movl	$0, (%rcx)
 	movq	$0, 8(%rcx)
@@ -124,8 +131,6 @@ switch_to_empty:                        # @switch_to_empty
 	movq	schedulable_threads_num(%rip), %rax
 	testq	%rax, %rax
 	je	.LBB3_4
-# %bb.1:
-	movq	%rdi, %rsi
 	.p2align	4, 0x90
 .LBB3_2:                                # =>This Inner Loop Header: Depth=1
 	leaq	-1(%rax), %rdx

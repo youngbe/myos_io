@@ -125,6 +125,11 @@ switch_to_empty:                        # @switch_to_empty
 	#APP
 	movq	%rsp, %rcx
 	#NO_APP
+	#APP
+	#NO_APP
+	movq	%rdi, %rsi
+	#APP
+	#NO_APP
 	movl	$0, (%rcx)
 	movq	$0, 8(%rcx)
 	#APP
@@ -134,8 +139,6 @@ switch_to_empty:                        # @switch_to_empty
 	movq	schedulable_threads_num(%rip), %rax
 	testq	%rax, %rax
 	je	.LBB3_4
-# %bb.1:
-	movq	%rdi, %rsi
 	.p2align	4, 0x90
 .LBB3_2:                                # =>This Inner Loop Header: Depth=1
 	leaq	-1(%rax), %rdx

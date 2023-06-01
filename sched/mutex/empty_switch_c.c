@@ -128,7 +128,7 @@ noreturn void __attribute__((noinline)) switch_to_interrupt(struct Thread *const
 // rsp == empty_stack_top - 16
 // current_proc : 普通线程：当前进程
 // 内核线程：对应虚拟进程
-noreturn void switch_to_empty(struct Proc *const current_proc)
+noreturn void switch_to_empty(struct Proc *current_proc)
 {
     atomic_fetch_add_explicit(&idle_cores_num, 1, memory_order_relaxed);
     kernel_gs_base.running_thread = NULL;
@@ -138,6 +138,9 @@ noreturn void switch_to_empty(struct Proc *const current_proc)
 
     struct Spin_Mutex_Member *p_spin_mutex_member;
     __asm__ volatile ("movq     %%rsp, %0":"=r"(p_spin_mutex_member), "+m"(__not_exist_global_sym_for_asm_seq)::);
+    __asm__ volatile ("":::"rsi");
+    __asm__ volatile ("":"+S"(current_proc)::"rdi");
+    //__asm__ volatile (""::"S"(current_proc):"rdi");
     spin_mutex_member_init(p_spin_mutex_member);
 
     __asm__ volatile ("cli":"+m"(__not_exist_global_sym_for_asm_seq)::);
