@@ -35,7 +35,14 @@ int cnd_broadcast(struct Cond *const cond)
     al_node_t *new_schedulable_threads_head;
     al_node_t *new_schedulable_threads_end = NULL;
     size_t count = 0;
+    void *next_node;
     do {
+        if (node == ret.end)
+            next_node = NULL;
+        else {
+            while ((next_node = atomic_load_explicit((_Atomic(void *) *)node, memory_order_relaxed)) == NULL)
+                __asm__ volatile ("pause");
+        }
         struct Thread *const thread = list_entry(node, struct Thread, al_node);
         struct Mutex *const mutex = thread->temp0;
         if (mutex == NULL) {
@@ -69,18 +76,7 @@ label1:
             *(void **)&thread->al_node = NULL;
             atomic_store_explicit((_Atomic(void *) *)last_end, mutex_node, memory_order_release);
         }
-    } while (
-            ({
-             void *temp;
-             if (node == ret.end)
-                 temp = NULL;
-             else {
-                 while ((temp = atomic_load_explicit((_Atomic(void *) *)node, memory_order_relaxed)) == NULL)
-                     __asm__ volatile ("pause");
-                 node = temp;
-             }
-             temp;
-            }) != NULL);
+    } while ((node = next_node) != NULL);
 
     if (new_schedulable_threads_end != NULL) {
         *(void **)new_schedulable_threads_end = NULL;

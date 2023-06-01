@@ -84,7 +84,7 @@ set_threads_schedulable:
 	je	1f
 	wrmsr
 1:
-	lock		incq	old_schedulable_threads_num(%rip)
+	lock		addq	%r9, old_schedulable_threads_num(%rip)
 	retq
 	.size	set_threads_schedulable, .-set_threads_schedulable
 
@@ -113,7 +113,7 @@ cli_set_threads_schedulable:
 	je	1f
 	wrmsr
 1:
-	lock		incq	old_schedulable_threads_num(%rip)
+	lock		addq	%r9, old_schedulable_threads_num(%rip)
     sti
 	retq
 	.size	cli_set_threads_schedulable, .-cli_set_threads_schedulable
