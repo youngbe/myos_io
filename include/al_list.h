@@ -278,7 +278,7 @@ inline struct RET_al_clear al_clear(struct Atomic_List_Index *const index)
     if (ret.end == NULL)
         return ret;
     while ((ret.head = atomic_load_explicit(&index->head, memory_order_relaxed)) == NULL)
-        asm ("pause");
+        __asm__ volatile ("pause");
     *(void **)&index->head = NULL;
     // memory_order_release: let list->head write visible
     ret.end = atomic_exchange_explicit(&index->end, NULL, memory_order_release);
