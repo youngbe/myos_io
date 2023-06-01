@@ -12,41 +12,40 @@ cli_spinlock_do:                        # @cli_spinlock_do
     cli
 	xchgq	%rax, (%rsi)
 	testq	%rax, %rax
-	je	.LBB0_4
+	je	4f
 	movq	%rsp, 8(%rax)
 	cmpl	$0, (%rsp)
-	jne	.LBB0_4
+	jne	4f
 	.p2align	4, 0x90
-.LBB0_2:                                # =>This Inner Loop Header: Depth=1
+2:                                # =>This Inner Loop Header: Depth=1
 	pause
 	cmpl	$0, (%rsp)
-	je	.LBB0_2
-.LBB0_4:
+	je	2b
+4:
 	callq	*%rdi
 	movq	%rax, %rcx
 	xorl	%esi, %esi
 	movq	(%rbx), %rax
 	cmpq	%rsp, %rax
-	jne	.LBB0_7
+	jne	7f
 	lock		cmpxchgq	%rsi, (%rbx)
-	jne	.LBB0_7
-	jmp	.LBB0_9
+	jne	7f
+	jmp	9f
 	.p2align	4, 0x90
-.LBB0_6:                                #   in Loop: Header=BB0_7 Depth=1
+6:                                #   in Loop: Header=BB0_7 Depth=1
 	pause
-.LBB0_7:                                # =>This Inner Loop Header: Depth=1
+7:                                # =>This Inner Loop Header: Depth=1
 	movq	8(%rsp), %rax
 	testq	%rax, %rax
-	je	.LBB0_6
+	je	6b
 	movl	$1, (%rax)
-.LBB0_9:
+9:
     sti
 	movq	%rcx, %rax
 	addq	$16, %rsp
 	popq	%rbx
 	retq
-.Lfunc_end0:
-	.size	cli_spinlock_do, .Lfunc_end0-cli_spinlock_do
+	.size	cli_spinlock_do, .-cli_spinlock_do
 
 
 	.section	.text.spinlock_do,"ax",@progbits
@@ -62,37 +61,36 @@ spinlock_do:                        # @spinlock_do
 	movq	%rsp, %rax
 	xchgq	%rax, (%rsi)
 	testq	%rax, %rax
-	je	.LBB0_4
+	je	4f
 	movq	%rsp, 8(%rax)
 	cmpl	$0, (%rsp)
-	jne	.LBB0_4
+	jne	4f
 	.p2align	4, 0x90
-.LBB0_2:                                # =>This Inner Loop Header: Depth=1
+2:                                # =>This Inner Loop Header: Depth=1
 	pause
 	cmpl	$0, (%rsp)
-	je	.LBB0_2
-.LBB0_4:
+	je	2b
+4:
 	callq	*%rdi
 	movq	%rax, %rcx
 	xorl	%esi, %esi
 	movq	(%rbx), %rax
 	cmpq	%rsp, %rax
-	jne	.LBB0_7
+	jne	7f
 	lock		cmpxchgq	%rsi, (%rbx)
-	jne	.LBB0_7
-	jmp	.LBB0_9
+	jne	7f
+	jmp	9f
 	.p2align	4, 0x90
-.LBB0_6:                                #   in Loop: Header=BB0_7 Depth=1
+6:                                #   in Loop: Header=BB0_7 Depth=1
 	pause
-.LBB0_7:                                # =>This Inner Loop Header: Depth=1
+7:                                # =>This Inner Loop Header: Depth=1
 	movq	8(%rsp), %rax
 	testq	%rax, %rax
-	je	.LBB0_6
+	je	6b
 	movl	$1, (%rax)
-.LBB0_9:
+9:
 	movq	%rcx, %rax
 	addq	$16, %rsp
 	popq	%rbx
 	retq
-.Lfunc_end0:
-	.size	spinlock_do, .Lfunc_end0-spinlock_do
+	.size	spinlock_do, .-spinlock_do

@@ -1,12 +1,12 @@
 	.text
 	.file	"spinlock_do_c.c"
-	.section	.text.cli_spinlock_do,"ax",@progbits
-	.globl	cli_spinlock_do                 # -- Begin function cli_spinlock_do
+	.section	.text.cli_spinlock_do__,"ax",@progbits
+	.globl	cli_spinlock_do__               # -- Begin function cli_spinlock_do__
 	.p2align	4, 0x90
-	.type	cli_spinlock_do,@function
-cli_spinlock_do:                        # @cli_spinlock_do
-.Lcli_spinlock_do$local:
-	.type	.Lcli_spinlock_do$local,@function
+	.type	cli_spinlock_do__,@function
+cli_spinlock_do__:                      # @cli_spinlock_do__
+.Lcli_spinlock_do__$local:
+	.type	.Lcli_spinlock_do__$local,@function
 # %bb.0:
 	pushq	%r14
 	pushq	%rbx
@@ -33,7 +33,6 @@ cli_spinlock_do:                        # @cli_spinlock_do
 	cmpl	$0, (%rsp)
 	je	.LBB0_2
 .LBB0_4:
-	movq	%rbx, %rsi
 	callq	*%rdi
 	movq	%rax, %rcx
 	movq	(%rbx), %rax
@@ -63,8 +62,8 @@ cli_spinlock_do:                        # @cli_spinlock_do
 	popq	%r14
 	retq
 .Lfunc_end0:
-	.size	cli_spinlock_do, .Lfunc_end0-cli_spinlock_do
-	.size	.Lcli_spinlock_do$local, .Lfunc_end0-cli_spinlock_do
+	.size	cli_spinlock_do__, .Lfunc_end0-cli_spinlock_do__
+	.size	.Lcli_spinlock_do__$local, .Lfunc_end0-cli_spinlock_do__
                                         # -- End function
 	.ident	"Ubuntu clang version 16.0.0 (1~exp5ubuntu3)"
 	.section	".note.GNU-stack","",@progbits
