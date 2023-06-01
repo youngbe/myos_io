@@ -2,14 +2,14 @@
 #include "sched-internal.h"
 
 static struct RET_al_clear
-cnd_broadcast_part0(void *, al_index_t *const threads)
+cnd_broadcast_part0(void *, void *, al_index_t *const threads)
 {
     return al_clear(threads);
 }
 
 static inline void __list_add(al_node_t **const phead, al_node_t **const pend, size_t *const count, struct Thread *const thread)
 {
-    if (*phead == NULL)
+    if (*pend == NULL)
         *phead = *pend = &thread->al_node;
     else {
         *(void **)*pend = &thread->al_node;
@@ -24,9 +24,9 @@ int cnd_broadcast(struct Cond *const cond)
     const bool is_sti = check_sti();
     struct RET_al_clear ret;
     if (is_sti)
-        ret = ((__typeof__(&cnd_broadcast_part0))cli_spinlock_do)(cnd_broadcast_part0, &cond->threads);
+        ret = ((__typeof__(&cnd_broadcast_part0))cli_spinlock_do)(cnd_broadcast_part0, &cond->spin_mutex, &cond->threads);
     else
-        ret = ((__typeof__(&cnd_broadcast_part0))spinlock_do)(cnd_broadcast_part0, &cond->threads);
+        ret = ((__typeof__(&cnd_broadcast_part0))spinlock_do)(cnd_broadcast_part0, &cond->spin_mutex, &cond->threads);
     if (ret.end == NULL) {
         // 没有线程
         return thrd_success;
@@ -66,10 +66,21 @@ label1:
                 asm("pause");
             *(void **)&mutex->waiters = temp;
         } else {
-            atomic_store_explicit((_Atomic(void *) *)last_end, mutex_node, memory_order_relaxed);
             *(void **)&thread->al_node = NULL;
+            atomic_store_explicit((_Atomic(void *) *)last_end, mutex_node, memory_order_release);
         }
-    } while ((node = *(void **)node) != NULL);
+    } while (
+            ({
+             void *temp;
+             if (node == ret.end)
+                 temp = NULL;
+             else {
+                 while ((temp = atomic_load_explicit((_Atomic(void *) *)node, memory_order_relaxed)) == NULL)
+                     __asm__ volatile ("pause");
+                 node = temp;
+             }
+             temp;
+            }) != NULL);
 
     if (new_schedulable_threads_end != NULL) {
         *(void **)new_schedulable_threads_end = NULL;

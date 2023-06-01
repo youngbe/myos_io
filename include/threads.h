@@ -37,7 +37,7 @@ enum
 struct Cond
 {
     al_index_t threads;
-    spin_mtx_t spin_mtx;
+    spin_mtx_t spin_mutex;
 };
 typedef struct Cond cnd_t;
 
