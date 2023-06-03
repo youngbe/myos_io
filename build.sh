@@ -78,6 +78,7 @@ out_files+=(out/lib/libc/stdlib/mimalloc/src/static.o)
 # sched模块
 out_files+=(sched/mutex/mtx_lock_c.s sched/mutex/mtx_trylock_c.s sched/mutex/mtx_unlock_c.s sched/mutex/cnd_wait_c.s sched/mutex/empty_switch.s sched/mutex/timer_isr.s sched/mutex/set_thread_schedulable.s sched/mutex/new_thread_isr.s sched/mutex/spinlock_do.s
 sched/empty_loop.s sched/spurious_isr.s sched/empty_isr.s sched/thread_start.s sched/abort_handler.s
+sched/tty/keyboard_thread.s sched/tty/keyboard_isr.s
 )
 src_files=(sched/static.c)
 for src_file in "${src_files[@]}"

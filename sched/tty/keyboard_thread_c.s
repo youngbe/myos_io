@@ -170,7 +170,6 @@ keyboard_thread:                        # @keyboard_thread
 	pushfq
 	cli
 	#NO_APP
-	#MEMBARRIER
 	#APP
 	movq	%rsp, 16(%rsi)
 	#NO_APP

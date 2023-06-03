@@ -172,7 +172,6 @@ keyboard_thread:                        # @keyboard_thread
 	movq	%r15, -56(%rbp)                 # 8-byte Spill
 	cli
 	#NO_APP
-	#MEMBARRIER
 	#APP
 	movq	%rsp, 16(%rsi)
 	#NO_APP

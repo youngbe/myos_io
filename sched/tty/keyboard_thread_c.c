@@ -335,7 +335,6 @@ label_in:
                     :"+m"(__not_exist_global_sym_for_asm_seq)
                     :"S"(current_thread)//, "D"(current_thread)
                     :);
-            atomic_signal_fence(memory_order_acquire);
             __asm__ volatile (
                     "movq   %%rsp, %0"
                     :"+m"(current_thread->rsp)
