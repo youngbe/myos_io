@@ -348,7 +348,7 @@ keyboard_thread:                        # @keyboard_thread
 	movl	$2, %edx
 	movq	%r8, %rbx
 	vzeroupper
-	callq	*2097240(%r12)
+	callq	*2097248(%r12)
 	jmp	.LBB0_48
 .LBB0_25:                               #   in Loop: Header=BB0_5 Depth=2
 	movl	%ecx, %eax
@@ -432,7 +432,7 @@ keyboard_thread:                        # @keyboard_thread
 	xorl	%edi, %edi
 	leaq	-65664(%rbp), %rsi
 	movq	%r14, %rdx
-	callq	*2097232(%r12)
+	callq	*2097240(%r12)
 	movq	2097152(%r12), %rbx
 	jmp	.LBB0_50
 .LBB0_39:                               #   in Loop: Header=BB0_5 Depth=2
@@ -479,7 +479,7 @@ keyboard_thread:                        # @keyboard_thread
 	xorl	%edi, %edi
 	movq	%r8, %rbx
 	vzeroupper
-	callq	*2097232(%r12)
+	callq	*2097240(%r12)
 .LBB0_48:                               #   in Loop: Header=BB0_5 Depth=2
 	movq	%rbx, %rax
 	movq	%rbx, %rsp

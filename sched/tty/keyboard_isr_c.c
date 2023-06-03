@@ -1,16 +1,9 @@
 #include "tty-internal.h"
-
-#include "mcs_spin.h"
 #include "sched-internal.h"
-#include "thrd_current.h"
 
-#include <io.h>
+#include <misc.h>
 
-volatile _Atomic(uint16_t) keyboard_buf[KEYBOARD_BUF_SIZE] = {0};
-volatile _Atomic(uint32_t) keyboard_buf_used = 0;
 static volatile _Atomic(uint32_t) keyboard_buf_ii = 0;
-// keyboard_buf_oi 在 keyboard 线程的局部变量
-volatile _Atomic(struct Thread *) keyboard_sleeping_thread = NULL;
 
 // 只有一个扫描码时，使用这个map
 static const uint16_t ps2_set1_map[UINT8_MAX] = {
@@ -220,8 +213,37 @@ static const uint16_t ps2_set1_map2[UINT8_MAX] = {
 static inline __attribute__((always_inline, no_caller_saved_registers)) void
 keyboard_isr_wrap(void *rsp)
 {
-    uint8_t scan_code = inb(0x60);
+    uint32_t temp_used = atomic_load_explicit(&keyboard_buf_used, memory_order_relaxed);
+    while (true) {
+        if (temp_used == KEYBOARD_BUF_SIZE)
+            goto label_return;
+        if (atomic_compare_exchange_strong_explicit(&keyboard_buf_used, &temp_used, temp_used + 1, memory_order_relaxed, memory_order_relaxed))
+            break;
+    }
+    struct Thread *current_thread = NULL;
+    struct Thread *temp_keyboard_sleeping_thread = NULL;
+    if (temp_used == 0) {
+        // 叫起床
+        if (!atomic_compare_exchange_strong_explicit(&keyboard_sleeping_thread, &temp_keyboard_sleeping_thread, (void *)1, memory_order_relaxed, memory_order_relaxed)) {
+            if ((((uint64_t *)rsp)[1] & 0b11) != 0)
+                current_thread = (void *)1;
+            else
+                current_thread = thrd_current_inline();
+            if (current_thread != NULL) {
+                al_append_inline(&schedulable_threads, &keyboard_sleeping_thread->al_node, false);
+                atomic_fetch_add_explicit(&schedulable_threads_num, 1, memory_order_relaxed);
+                if (*(void **)&idle_cores_num != 0)
+                    wrmsr_volatile_seq(0x830, 35 | 0b000 << 8 | 1 << 14 | 0b11 << 18);
+                atomic_fetch_add_explicit(&old_schedulable_threads_num, 1, memory_order_relaxed);
+            }
+            else
+                atomic_fetch_sub_explicit(&idle_cores_num, 1, memory_order_relaxed);
+        }
+    }
+
+
     uint16_t key_code;
+    uint8_t scan_code = inb(0x60);
     if (scan_code == 0xE0) {
         scan_code = inb(0x60);
         if (scan_code == 0x2A) {
@@ -253,43 +275,16 @@ keyboard_isr_wrap(void *rsp)
     } else
         key_code = ps2_set1_map[scan_code];
 
-    if ((inb(0x64) & 1) != 0)
-        goto label_abort;
     if (key_code == 0)
-        goto label_return;
+        goto label_abort;
 
-    uint32_t temp_used = atomic_load_explicit(&keyboard_buf_used, memory_order_relaxed);
-    while (true) {
-        if (temp_used == KEYBOARD_BUF_SIZE)
-            goto label_return;
-        if (atomic_compare_exchange_strong_explicit(&keyboard_buf_used, &temp_used, temp_used + 1, memory_order_acquire, memory_order_relaxed))
-            break;
-    }
-    struct Thread *current_thread = NULL;
-    struct Thread *temp_keyboard_sleeping_thread = NULL;
-    if (temp_used == 0) {
-        // 叫起床
-        if (!atomic_compare_exchange_strong_explicit(&keyboard_sleeping_thread, &temp_keyboard_sleeping_thread, (void *)1, memory_order_relaxed, memory_order_relaxed)) {
-            if ((((uint64_t *)rsp)[1] & 0b11) != 0)
-                current_thread = (void *)1;
-            else
-                current_thread = thrd_currentx();
-            if (current_thread != NULL) {
-                struct Spin_Mutex_Member spin_mutex_member;
-                spin_mutex_member_init_interrupt(&spin_mutex_member);
-                set_thread_schedulable_interrupt(temp_keyboard_sleeping_thread, &spin_mutex_member);
-            } else
-                atomic_fetch_sub_explicit(&idle_cores_num, 1, memory_order_relaxed);
-        }
-    }
     // 需要保证 keyboard_buf_used 已经写入
     // 保证叫起床已经发生
     const uint16_t temp_i = atomic_fetch_add_explicit(&keyboard_buf_ii, 1, memory_order_release) & (KEYBOARD_BUF_SIZE - 1);
     atomic_store_explicit(&keyboard_buf[temp_i], key_code, memory_order_relaxed);
-    if (temp_keyboard_sleeping_thread == NULL || current_thread != NULL) {
-        atomic_signal_fence(memory_order_release);
+    if (temp_keyboard_sleeping_thread == NULL || current_thread != NULL)
         goto label_return;
-    } else {
+    else {
         __asm__ volatile (
                 "movq	%%gs:8, %%rsi\n\t"
                 "jmp    switch_to_interrupt"
@@ -304,7 +299,7 @@ label_return:
     return;
 
 label_abort:
-    __asm__ volatile ("jmp abort");
+    __asm__ volatile ("callq abort");
     __builtin_unreachable();
 }
 

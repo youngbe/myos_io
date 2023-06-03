@@ -1,10 +1,7 @@
 #include "tty-internal.h"
 #include "sched-internal.h"
 
-#include "thrd_current.h"
-
-
-#include <io.h>
+#include <misc.h>
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -316,7 +313,7 @@ int keyboard_thread(void *)
             );
             */
 
-    struct Thread *const current_thread = thrd_currentx();
+    struct Thread *const current_thread = thrd_current_inline();
     size_t last_used;
     size_t keyboard_buf_oi = 0;
 

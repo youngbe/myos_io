@@ -7,7 +7,7 @@ struct FD kernel_stdout_fd =
     .writev = tty_writev,
     .read = NULL,
     .readv = NULL,
-    //.lseek = tty_lseek,
+    .lseek = tty_lseek,
     .close = NULL,
     .data = NULL
 };
@@ -18,7 +18,7 @@ struct FD kernel_stderr_fd =
     .writev = tty_writev,
     .read = NULL,
     .readv = NULL,
-    //.lseek = tty_lseek,
+    .lseek = tty_lseek,
     .close = NULL,
     .data = NULL
 };
@@ -27,9 +27,9 @@ struct FD kernel_stdin_fd =
 {
     .write = NULL,
     .writev = NULL,
-    //.read = tty_read,
-    //.readv = tty_readv,
-    //.lseek = tty_lseek,
+    .read = tty_read,
+    .readv = tty_readv,
+    .lseek = tty_lseek,
     .close = NULL,
     .data = &default_tty
 };

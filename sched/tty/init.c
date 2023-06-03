@@ -19,7 +19,11 @@ void kernel_init_part6()
 {
     if (mtx_init(&default_tty.read_mtx, mtx_plain) != thrd_success || cnd_init(&default_tty.read_cnd) != thrd_success)
         abort();
-    //thrd_t keyboard_thread_t;
-    //if (thrd_create(&keyboard_thread_t, keyboard_thread, NULL) != thrd_success)
-        //abort();
+    thrd_t keyboard_thread_t;
+    if (thrd_create(&keyboard_thread_t, keyboard_thread, NULL) != thrd_success)
+        abort();
 }
+
+volatile _Atomic(uint16_t) keyboard_buf[KEYBOARD_BUF_SIZE] = {0};
+volatile _Atomic(uint32_t) keyboard_buf_used = 0;
+volatile _Atomic(struct Thread *) keyboard_sleeping_thread = NULL;
