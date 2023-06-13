@@ -251,18 +251,12 @@ noreturn void ap_init0(struct Core_Data *const this_core_data, const size_t all_
     __builtin_unreachable();
 }
 
-static inline size_t get_cores_num()
-{
-    return 8;
-}
-
 // enable avx-512 if possible
 // 多核心初始化
 // set xsave_size in timer_isr
 // set idle_cores_num
-void kernel_init_part4(void *const low_free_4kpage)
+void kernel_init_part4(void *const low_free_4kpage, const size_t expect_cores_num)
 {
-    const size_t expect_cores_num = get_cores_num();
     uint32_t bsp_xcr0_usable_bits;
     {
         uint64_t rax, rbx, rcx, rdx;

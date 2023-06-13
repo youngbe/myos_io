@@ -60,6 +60,7 @@ enter64:
     movl    8(%esp), %edi
     movl    12(%esp), %esi
     movl    16(%esp), %edx
+    movl    20(%esp), %ecx
     jmpq    *%rax
 
     # 待完善

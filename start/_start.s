@@ -13,10 +13,12 @@
 // 4. 内核被加载到 16M - 4G 空闲内存上，首尾对齐2M (如内核大小为 2M + 1 字节，选择加载在16M的位置上，则需要保证 16M - 20M 这 4M 都是空闲可用的内存)
 //
 // 5. 传入BIOS e820中断获取的内存分布，以e820条目数组的形式进行传入，需要对条目进行整理：处理重叠、越界、并排序；e820条目数组保存在 4k - 16M 空闲内存上
+//
+// 6. 传入CPU逻辑核心数
 // 
-// 6. 进入内核前禁用8259a芯片
+// 7. 进入内核前禁用8259a芯片
 // 
-// 7. 进入内核时关闭中断(cli) 和调试(clear TF flag)
+// 8. 进入内核时关闭中断(cli) 和调试(clear TF flag)
 //
 // 控制寄存器说明：
 // 进入内核前，请按照下面所示正确配置控制寄存器：
@@ -52,6 +54,7 @@ _start:
     movq    %rdi, %rbp
     movq    %rsi, %r12
     movq    %rdx, %r13
+    movq    %rcx, %r14
 
     # 换栈
     leaq    main_thread+0x200000(%rip), %rsp
@@ -116,6 +119,7 @@ _start:
     // update idle_cores_num
     // update timer_isr
     movq    %r13, %rdi
+    movq    %r14, %rsi
     callq   kernel_init_part4
     // init stdio lock
     callq   kernel_init_part5

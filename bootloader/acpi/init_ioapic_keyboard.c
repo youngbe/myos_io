@@ -14,10 +14,11 @@ static inline struct
     ssize_t status;
     void* keyboard_ioapic_base;
     uint8_t index;
+    size_t cores_num;
 }
 get_keyboard_ioapic_base_and_index();
 
-ssize_t map_keyboard_interrupt_to_vector(const uint8_t apic_id, const uint8_t vector)
+ssize_t map_keyboard_interrupt_to_vector(const uint8_t apic_id, const uint8_t vector, size_t *const cores_num)
 {
     void* keyboard_ioapic_base;
     uint8_t index_in_ioapic;
@@ -29,6 +30,7 @@ ssize_t map_keyboard_interrupt_to_vector(const uint8_t apic_id, const uint8_t ve
         }
         keyboard_ioapic_base=ret.keyboard_ioapic_base;
         index_in_ioapic=ret.index;
+        *cores_num = ret.cores_num;
     }
     uint32_t keyboard_IOREDTBL_low=read_ioapic_register(keyboard_ioapic_base, (uint32_t)0x10+index_in_ioapic*2);
     uint32_t keyboard_IOREDTBL_high=read_ioapic_register(keyboard_ioapic_base, (uint32_t)0x10+index_in_ioapic*2+1);
@@ -105,6 +107,7 @@ inline __typeof__(get_keyboard_ioapic_base_and_index()) get_keyboard_ioapic_base
             }
             io_apic_ptr_list_size=ret.io_apic_ptr_list_size;
             interrupt_source_override_ptr_list_size=ret.interrupt_source_override_ptr_list_size;
+            retv.cores_num = ret.cores_num;
         }
         uint32_t keyboard_irq_gsi;
         {

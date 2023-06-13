@@ -42,6 +42,7 @@ __typeof__(parse_madt(NULL,NULL,0,NULL,0)) parse_madt(
     __typeof__(parse_madt(NULL,NULL,0,NULL,0)) ret;
     ret.io_apic_ptr_list_size=0;
     ret.interrupt_source_override_ptr_list_size=0;
+    ret.cores_num = 0;
     const struct Madt_entry_header* temp_ptr=(const struct Madt_entry_header*)((const uint8_t *)madt+0x2c);
     while ( (const uint8_t *)temp_ptr < (const  uint8_t *)madt+madt->h.Length )
     {
@@ -53,6 +54,11 @@ __typeof__(parse_madt(NULL,NULL,0,NULL,0)) parse_madt(
                 ret.status=-2;
                 return ret;
             }
+            if (ret.cores_num == SIZE_MAX) {
+                ret.status = -1;
+                return ret;
+            }
+            ++ret.cores_num;
         }
         // Entry Type 1 : I/O APIC
         else if ( temp_ptr->entry_type == 1 )

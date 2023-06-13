@@ -49,6 +49,7 @@ struct
     ssize_t status;
     size_t io_apic_ptr_list_size;
     size_t interrupt_source_override_ptr_list_size;
+    size_t cores_num;
 }
 parse_madt(const struct MADT*madt,
         const struct IO_APIC** io_apic_ptr_list, size_t max_io_apic_ptr_list_size,

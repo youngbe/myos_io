@@ -101,7 +101,7 @@ void *find_kernel_load_pos(const struct E820_Entry *entrys, size_t num);
 void load_kernel(void *pos);
 
 // enter64.s
-noreturn void enter64(void *start64, uint32_t arg1, uint32_t arg2, uint32_t arg3);
+noreturn void enter64(void *start64, uint32_t arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4);
 
 // main.c
 noreturn void bootloader_main();
@@ -125,4 +125,4 @@ static_assert(KERNEL_SIZE <= 0x100000000 - 0x1000000, "Kernel too large!");
 #define KERNEL_SIZE_ALIGN2M (((size_t)(KERNEL_SIZE) + 0x1fffff) & -0x200000)
 
 // acpi
-ssize_t map_keyboard_interrupt_to_vector(uint8_t apic_id, uint8_t vector);
+ssize_t map_keyboard_interrupt_to_vector(uint8_t apic_id, uint8_t vector, size_t *cores_num);
